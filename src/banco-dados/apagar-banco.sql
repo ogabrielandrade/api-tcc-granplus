@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS destino_movimentacao;
+DROP TABLE IF EXISTS saida_produtos;
+DROP TABLE IF EXISTS entrada_produtos;
+DROP TABLE IF EXISTS entrada;
+DROP TABLE IF EXISTS localizacao_produtos;
+DROP TABLE IF EXISTS produto;
+DROP TABLE IF EXISTS localizacao;
+DROP TABLE IF EXISTS categorias;
+DROP TABLE IF EXISTS unidade_medida;
+DROP TABLE IF EXISTS fornecedor;
+DROP TABLE IF EXISTS auditoria;
+DROP TABLE IF EXISTS usuarios;
