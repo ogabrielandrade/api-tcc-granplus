@@ -1,22 +1,10 @@
-const express = require("express");
-const cors = require("cors");
 require("dotenv").config();
+const app = require('./app');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 3333;
 
-const porta = process.env.PORT || 3333;
-
-app.listen(porta, () => {
+app.listen(PORT, () => {
   console.log("API rodando na porta 3333");
 });
 
-app.get("/teste", (req, res) => {
-  const agora = new Date().toLocaleString("pt-BR");
-  res.status(200).json({
-    sucesso: true,
-    mensagem: "Teste de rota GET",
-    data: agora,
-  });
-});
+
