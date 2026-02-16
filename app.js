@@ -6,6 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/teste', require('./src/routes/produto.routes'))
+app.use('/produtos', require('./src/routes/product.routes'))
 
 module.exports = app;
