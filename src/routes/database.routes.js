@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const databaseController = require("../controllers/database.controller");
 
-router.get("/test", databaseController.testDataBase);
+router.get("/teste", databaseController.testDataBase);
 
 router.get("/testebanco", (req, res) => {
   console.log("Usuário do banco:", process.env.BD_USUARIO);
