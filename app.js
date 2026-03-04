@@ -7,6 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/produtos', require('./src/routes/product.routes'));
+
 app.use('/database', require('./src/routes/database.routes'));
 
 module.exports = app;
