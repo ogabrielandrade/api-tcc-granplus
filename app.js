@@ -4,7 +4,9 @@ const productRoutes = require('./src/routes/product.routes');
 const stockRoutes   = require('./src/routes/stock.routes');
 const inputRoutes   = require('./src/routes/input.routes');
 const exitRoutes    = require('./src/routes/exit.routes');
-const authRoutes    = require('./src/routes/auth.routes')
+const authRoutes    = require('./src/routes/auth.routes');
+
+const userRoutes    = require('./src/routes/user.routes');
 
 const app = express();
 
@@ -19,5 +21,6 @@ app.use('/', exitRoutes);
 app.use("/", authRoutes);
 
 app.use('/database', require('./src/routes/database.routes'));
+app.use('/usuarios', userRoutes); // Rota para usuários
 
 module.exports = app;
