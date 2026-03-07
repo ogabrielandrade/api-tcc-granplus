@@ -211,8 +211,8 @@ exports.loginUser = async (req, res) => {
       user_nome: user.user_nome,
       user_nivel_acesso: user.user_nivel_acesso
     },
-    process.env.JWT_SECRET || "", // aqui deve ser uma string secreta definida no .env para assinar o token
-    { expiresIn: "12h" } // token expira em 1 hora
+    process.env.JWT_SECRET || "granplus_fallback_secret", // aqui deve ser uma string secreta definida no .env para assinar o token
+    { expiresIn: "12h" } // token expira em 12 hora
   );
   res.json({
     message: "Login realizado com sucesso",
@@ -223,7 +223,7 @@ exports.loginUser = async (req, res) => {
       user_nivel_acesso: user.user_nivel_acesso
     }
   });
-  
+
   }catch (error) {
     console.error(error);
     res.status(500).json({
