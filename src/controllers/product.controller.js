@@ -1,10 +1,12 @@
 // REGRA DE NEGÓCIO
 
-import pool from "../config/database.js";
+const pool = require("../config/database.js");
 
-export const listProducts = async (req, res) => {
+const listProducts = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM produto WHERE pdt_ativo = 1");
+    const [rows] = await pool.query(
+      "SELECT * FROM produto WHERE pdt_ativo = 1",
+    );
     res.status(200).json(rows);
   } catch (error) {
     console.error("Erro ao buscar produtos");
@@ -14,7 +16,7 @@ export const listProducts = async (req, res) => {
   }
 };
 
-export const createProduct = async (req, res) => {
+const createProduct = async (req, res) => {
   try {
     const {
       pdt_nome,
@@ -53,7 +55,7 @@ export const createProduct = async (req, res) => {
   }
 };
 
-export const updateProduct = async (req, res) => {
+const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -102,26 +104,76 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-export const deleteProduct = async (req, res) => {
-    try {
-        const { id } = req.params;
+    const [result] = await pool.query(
+      `UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`,
+      [id],
+    );
 
-        const [result] = await pool.query(`UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`, [id])
-
-        if (result.affectedRows === 0){
-            return res.status(404).json({
-                message: "Produto não encontrado"
-            })
-        };
-
-        res.status(200).json({
-            message: "Produto desativado com sucesso"
-        })
-    } catch (error) {
-        console.error("Erro ao desativar o produto");
-        res.status(500).json({
-            error: "Erro ao desativar o produto"
-        })
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Produto não encontrado",
+      });
     }
-}
+
+    res.status(200).json({
+      message: "Produto desativado com sucesso",
+    });
+  } catch (error) {
+    console.error("Erro ao desativar o produto");
+    res.status(500).json({
+      error: "Erro ao desativar o produto",
+    });
+  }
+};
+
+const historicalMoviments = async (req, res) => {
+
+  try {
+
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+
+      `SELECT 
+        'entrada' AS tipo,
+        ep.ent_prod_qtde AS quantidade,
+        e.ent_data AS data
+      FROM entrada_produtos ep
+      JOIN entrada e ON ep.ent_id = e.ent_id
+      WHERE ep.pdt_id = ?
+
+      UNION ALL
+
+      SELECT
+        'saida' AS tipo,
+        sp.lcl_qtde AS quantidade,
+        sp.lcl_data_saida AS data
+      FROM saida_produtos sp
+      JOIN localizacao_produtos lp
+      ON sp.lcl_id = lp.lcl_id
+      WHERE lp.pdt_id = ?
+
+      ORDER BY data DESC
+      `,
+      [id, id]
+    );
+
+    res.json(rows);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar histórico"
+    });
+
+  }
+
+};
+
+module.exports = { listProducts, createProduct, updateProduct, deleteProduct, historicalMoviments }
