@@ -23,7 +23,7 @@ const initializeDatabase = async () => {
     const connection = await pool.getConnection(); //pega uma conexão disponível do pool, deixa disponível para uso até ser liberada por meio do 'connection.realease()'
 
     console.log("Conexão MySQL estabelecida com sucesso!");
-    connection.release();
+    connection.release(); // libera a conexão de volta para a pool
 
     async function testQuery() {
       try {
