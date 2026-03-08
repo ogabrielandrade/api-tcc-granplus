@@ -1,6 +1,6 @@
-const pool = require("../config/database");
+const pool   = require("../config/database");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const jwt    = require("jsonwebtoken");
 
 // listar todos os usuarios
 exports.getAllUsers = async (req, res) => {

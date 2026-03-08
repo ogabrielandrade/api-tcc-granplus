@@ -1,10 +1,10 @@
-const express = require("express");
-const router = express.Router();
+const express        = require("express");
+const router         = express.Router();
 const userController = require("../controllers/user.controller");
 
 // Importar middlewares
-const authenticateToken = require("../middlewares/authenticateToken");
-const requireAdmin = require("../middlewares/requireAdmin");
+const authenticateToken   = require("../middlewares/authenticateToken");
+const requireAdmin        = require("../middlewares/requireAdmin");
 const requireOwnerOrAdmin = require("../middlewares/owner");
 
 // Rota PÚBLICA (sem autenticação)
