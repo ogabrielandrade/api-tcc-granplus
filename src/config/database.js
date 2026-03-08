@@ -31,7 +31,7 @@ const initializeDatabase = async () => {
           "SELECT * FROM produto WHERE pdt_id = ?",
           [1],
         );
-        console.log('Conexão estabelecida com sucesso!');
+        console.log("Conexão estabelecida com sucesso!");
       } catch (error) {
         console.log(error);
       }
