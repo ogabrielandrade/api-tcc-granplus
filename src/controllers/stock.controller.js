@@ -1,19 +1,39 @@
 const pool = require("../config/database");
 
-const calculateStock = async (req, res) => {
+// === NOVIDADE: A nossa função para a tela de Estoque Geral ===
+const listAllStock = async (req, res) => { // Essa função vai listar o estoque geral, mostrando o nome do produto, o local de estoque e a quantidade disponível. Ela é diferente da função calculateStock, que calcula o estoque atual de um produto específico. 
+                                           // A função listAllStock vai devolver uma lista com todos os produtos e seus respectivos estoques, para a tela de Estoque Geral.
+  try {
+    const [estoque] = await pool.query(`
+      SELECT 
+        lp.lcl_id, 
+        p.pdt_nome, 
+        l.loc_nome, 
+        lp.lcl_prod_estoque 
+      FROM localizacao_produtos lp
+      JOIN produto p ON lp.pdt_id = p.pdt_id
+      JOIN localizacao l ON lp.loc_id = l.loc_id
+    `);
+    
+    // Devolve a lista pronta para o React
+    res.json(estoque);
+  } catch (error) {
+    console.error("Erro ao listar estoque geral:", error);
+    res.status(500).json({ erro: "Erro ao buscar o estoque geral" });
+  }
+};
+
+const calculateStock = async (req, res) => { // Essa função é para a tela de Dashboard, onde queremos mostrar o estoque atual de um produto específico. Ela recebe o id do produto como parâmetro, calcula o total de entradas e saídas daquele produto e devolve o estoque atual.
   try {
     const { id } = req.params;
 
-    // Soma das entradas
     const [entradas] = await pool.query(
-      // entradas seria uma 'rows', retorna dados em forma de array
       `SELECT IFNULL(SUM(ent_prod_qtde), 0) AS total_entrada
         FROM entrada_produtos
         WHERE pdt_id = ?`,
       [id],
     );
 
-    // Soma das saídas
     const [saidas] = await pool.query(
       `SELECT IFNULL(SUM(sp.lcl_qtde), 0) AS total_saida
         FROM saida_produtos sp
@@ -23,7 +43,6 @@ const calculateStock = async (req, res) => {
     );
 
     const estoqueAtual = entradas[0].total_entrada - saidas[0].total_saida;
-    // por que precisa-se passar o índice em 'entrdas' e 'saidas'? O mysql2 retorna rows e fields(metadados), no caso vamos aproveitar apenas as rows, e as rows são sempre arrays; depois, digitamos o .total_entrada, para pegar o valor dessa propriedade
 
     res.json({
       produto_id: id,
@@ -37,4 +56,5 @@ const calculateStock = async (req, res) => {
   }
 };
 
-module.exports = { calculateStock };
+// Exportar as funções aqui embaixo
+module.exports = { calculateStock, listAllStock };
