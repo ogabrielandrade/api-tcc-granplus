@@ -1,37 +1,38 @@
 {
-  "name": "api-tcc-granplus",
-  "version": "1.0.0",
-  "description": "Sistema de Controle de Estoque",
-  "main": "server.js",
-  "scripts": {
-    "start": "nodemon server.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ogabrielandrade/api-tcc-granplus.git"
-  },
-  "keywords": [
-    "estoque",
-    "api",
-    "tcc",
-    "granplus"
-  ],
-  "author": "Gabriel Andrade - Alex Zanini - Guilherme Felipe - Davi Dutrelo - Iago Calado",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/ogabrielandrade/api-tcc-granplus/issues"
-  },
-  "homepage": "https://github.com/ogabrielandrade/api-tcc-granplus#readme",
-  "dependencies": {
-    "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.6.0",
-    "swagger-ui-express": "^5.0.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.11"
-  }
+	"name": "api-tcc-granplus",
+	"version": "1.0.0",
+	"description": "Sistema de Controle de Estoque",
+	"main": "server.js",
+	"scripts": {
+		"start": "nodemon server.js",
+		"dev": "nodemon server.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ogabrielandrade/api-tcc-granplus.git"
+	},
+	"keywords": [
+		"estoque",
+		"api",
+		"tcc",
+		"granplus"
+	],
+	"author": "Gabriel Andrade - Alex Zanini - Guilherme Felipe - Davi Dutrelo - Iago Calado",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/ogabrielandrade/api-tcc-granplus/issues"
+	},
+	"homepage": "https://github.com/ogabrielandrade/api-tcc-granplus#readme",
+	"dependencies": {
+		"bcrypt": "^6.0.0",
+		"cors": "^2.8.5",
+		"dotenv": "^16.6.1",
+		"express": "^5.1.0",
+		"jsonwebtoken": "^9.0.3",
+		"mysql2": "^3.6.0",
+		"swagger-ui-express": "^5.0.1"
+	},
+	"devDependencies": {
+		"nodemon": "^3.1.11"
+	}
 }

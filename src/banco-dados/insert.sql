@@ -3,10 +3,11 @@ USE controle_estoque;
 -- =============================================
 -- TABELA: usuarios
 -- =============================================
+-- Senhas originais: admin123, estoque123, financeiro123 (hashes bcrypt abaixo)
 INSERT INTO usuarios (user_id, user_nome, user_senha, user_nivel_acesso, user_ativo) VALUES
-(1, 'Administrador', 'admin123', 'admin', 1),
-(2, 'João Estoquista', 'estoque123', 'user', 1),
-(3, 'Maria Financeiro', 'financeiro123', 'user', 1);
+(1, 'Administrador', '$2b$10$fTlcCHyyoLftCkk9mb3HMeFMk4tJ1DfWz9XxJqDDCIDH2v6hyjqbe', 'admin', 1),
+(2, 'João Estoquista', '$2b$10$fFOOgKqODvEFh5R.8nJTAuKKYpzenk9bahQHEivpqV6JeAup9ITfm', 'user', 1),
+(3, 'Maria Financeiro', '$2b$10$ynWvezAXufrKhfZsE1sNye1v1D5RoveMKOrsmzGCDF8DmrvMu4sMS', 'user', 1);
 
 -- =============================================
 -- TABELA: fornecedor

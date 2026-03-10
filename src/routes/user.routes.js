@@ -1,10 +1,11 @@
-const express = require("express");
-const router = express.Router();
+const express        = require("express");
+const router         = express.Router();
 const userController = require("../controllers/user.controller");
 
 // middlewares
 const authenticateToken = require("../middlewares/authenticateToken");
 const requireAdmin = require("../middlewares/requireAdmin");
+
 const requireOwnerOrAdmin = require("../middlewares/owner");
 
 // rota pública
