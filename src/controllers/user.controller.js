@@ -1,7 +1,7 @@
 const pool = require("../config/database");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { use } = require("react");
+
 
 // listar todos os usuarios
 exports.getAllUsers = async (req, res) => {
@@ -42,7 +42,7 @@ exports.getUserById = async (req, res) => {
             user_nivel_acesso,
             user_ativo
         FROM usuarios
-        WHERE user_id = ? AND user_ativo =1 
+        WHERE user_id = ? AND user_ativo = 1 
      `,
       [id], //O ? é um placeholder (protege contra SQL Injection). o valor vem do id
     );
@@ -112,6 +112,7 @@ exports.createUser = async (req, res) => {
 };
 
 // atualizar usuário
+// atualizar usuário
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
   const { user_nome, user_nivel_acesso, user_ativo } = req.body;
@@ -138,7 +139,7 @@ exports.updateUser = async (req, res) => {
 
     // verificar se nome já está em uso
     const [nomeExiste] = await pool.query(
-      `SELECT user_id 
+      `SELECT user_id
        FROM usuarios
        WHERE user_nome = ? AND user_id != ?`,
       [user_nome, id]
@@ -150,12 +151,17 @@ exports.updateUser = async (req, res) => {
       });
     }
 
+    // verificar se quem está fazendo a requisição é admin
+    const isAdmin = req.user.user_nivel_acesso === "admin";
+
     // atualizar usuário
     await pool.query(
       `UPDATE usuarios
-       SET user_nome = ?, user_nivel_acesso = ?, user_ativo = ?
+       SET user_nome = ?,
+           user_nivel_acesso = IF(?, ?, user_nivel_acesso),
+           user_ativo = ?
        WHERE user_id = ?`,
-      [user_nome, user_nivel_acesso, user_ativo, id]
+      [user_nome, isAdmin, user_nivel_acesso, user_ativo, id]
     );
 
     return res.status(200).json({
@@ -196,7 +202,7 @@ exports.deleteUser = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao desativar usuário:", error);
     return res.status(500).json({
       erro: "Erro ao desativar usuário",
     });
