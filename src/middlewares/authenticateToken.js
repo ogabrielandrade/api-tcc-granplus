@@ -6,6 +6,8 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
 
+
+
   // Se não tem token, negar acesso
   if (!token) {
     return res.status(401).json({

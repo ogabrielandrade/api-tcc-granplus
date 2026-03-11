@@ -112,7 +112,6 @@ exports.createUser = async (req, res) => {
 };
 
 // atualizar usuário
-// atualizar usuário
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
   const { user_nome, user_nivel_acesso, user_ativo } = req.body;
@@ -260,7 +259,7 @@ exports.loginUser = async (req, res) => {
         user_nome: user.user_nome,
         user_nivel_acesso: user.user_nivel_acesso,
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "granplus_fallback_secret",
       { expiresIn: "12h" }
     );
 

@@ -17,8 +17,8 @@ app.use(express.json());
 
 app.use("/produtos", productRoutes);
 app.use("/estoque", stockRoutes);
-app.use("/", inputRoutes);
-app.use("/", exitRoutes);
+app.use("/entradas", inputRoutes);
+app.use("/saidas", exitRoutes);
 app.use("/usuarios", userRoutes); // Rota para usuários
 app.use("/fornecedores", fornecedorRoutes);
 app.use("/categorias", categoriasRoutes);

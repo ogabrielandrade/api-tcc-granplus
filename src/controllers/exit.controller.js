@@ -1,4 +1,5 @@
 const pool = require("../config/database.js");
+const { registerAudit } = require('../services/audit.services');
 
 const registerExit = async (req, res) => {
   try {
@@ -15,12 +16,14 @@ const registerExit = async (req, res) => {
 
     if (produtoLocal.length === 0) {
       return res.status(404).json({
-        erro: "Localização não encontrada",
+        erro: "Produto não encontrado nesta localização",
       });
     }
 
     const pdt_id = produtoLocal[0].pdt_id;
 
+
+    // calcular entradas
     const [entradas] = await pool.query(
       `SELECT IFNULL(SUM(ent_prod_qtde),0) AS total
        FROM entrada_produtos
@@ -32,8 +35,7 @@ const registerExit = async (req, res) => {
     const [saidas] = await pool.query(
       `SELECT IFNULL(SUM(sp.lcl_qtde),0) AS total
        FROM saida_produtos sp
-       JOIN localizacao_produtos lp
-       ON sp.lcl_id = lp.lcl_id
+       JOIN localizacao_produtos lp ON sp.lcl_id = lp.lcl_id
        WHERE lp.pdt_id = ?`,
       [pdt_id]
     );
@@ -55,6 +57,8 @@ const registerExit = async (req, res) => {
       VALUES (?, ?, NOW(), ?, ?, ?)`,
       [lcl_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa],
     );
+
+    await registerAudit(req.user.user_id, "Atualização de estoque - saída", "saida_produtos", result.insertId);
 
     res.status(201).json({
       mensagem: "Saída registrada com sucesso",

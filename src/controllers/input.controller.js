@@ -1,5 +1,8 @@
-const pool = require("../config/database");
+const pool              = require("../config/database");
+const { registerAudit } = require('../services/audit.services');
 
+
+// REGISTRAR PRODUTO
 const registerInput = async (req, res) => {
   const connection = await pool.getConnection();
 
@@ -13,7 +16,7 @@ const registerInput = async (req, res) => {
       produtos
     } = req.body;
 
-    await connection.beginTransaction();
+    await connection.beginTransaction(); // começo da transição, so será interompida por um commit (se der certo) ou por um rollback (se der erro)
 
     // inserir entrada
     const [inputResult] = await connection.query(
@@ -24,6 +27,8 @@ const registerInput = async (req, res) => {
     );
 
     const ent_id = inputResult.insertId;
+
+    await registerAudit(req.user.user_id, "Atualização de estoque - saída", "entrada_produtos", inputResult.insertId);
 
     // inserir produtos da entrada
     for (const product of produtos) {
