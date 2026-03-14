@@ -1,6 +1,7 @@
 // REGRA DE NEGÓCIO
 
 const pool = require("../config/database.js");
+const { registerAudit } = require("../services/audit.services.js");
 
 const listProducts = async (req, res) => {
   try {
@@ -16,6 +17,7 @@ const listProducts = async (req, res) => {
   }
 };
 
+// CRIAR PRODUTO
 const createProduct = async (req, res) => {
   try {
     const {
@@ -43,18 +45,23 @@ const createProduct = async (req, res) => {
       ],
     );
 
+    await registerAudit(req.user.user_id, "Produto criado", "produto", result.insertId); // função que registra INSERT na tabela de 'auditoria'
+
+
     res.status(201).json({
       message: "Produto criado com sucesso",
       id: result.insertID,
     });
   } catch (error) {
-    console.error("Erro ao criar produto");
+    console.error("Erro ao criar produto", error);
     res.status(500).json({
       error: "Erro ao criar produto",
     });
   }
 };
 
+
+// ATUALIZAR PRODUTO
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -91,6 +98,8 @@ const updateProduct = async (req, res) => {
       ],
     );
 
+     await registerAudit(req.user.user_id, "Produto atualizado", "produto", id);
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Produto não encontrado" });
     }
@@ -104,6 +113,8 @@ const updateProduct = async (req, res) => {
   }
 };
 
+
+// DELETAR (TORNÁ-LO INATIVO) PRODUTOS
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -112,6 +123,8 @@ const deleteProduct = async (req, res) => {
       `UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`,
       [id],
     );
+
+     await registerAudit(req.user.user_id, "Produto inativado", "produto", id);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -133,7 +146,7 @@ const deleteProduct = async (req, res) => {
 const historicalMoviments = async (req, res) => {
 
   try {
-
+    
     const { id } = req.params;
 
     const [rows] = await pool.query(
@@ -159,21 +172,23 @@ const historicalMoviments = async (req, res) => {
 
       ORDER BY data DESC
       `,
-      [id, id]
+      [id, id],
     );
 
     res.json(rows);
-
   } catch (error) {
-
     console.error(error);
 
     res.status(500).json({
-      erro: "Erro ao buscar histórico"
+      erro: "Erro ao buscar histórico",
     });
-
   }
-
 };
 
-module.exports = { listProducts, createProduct, updateProduct, deleteProduct, historicalMoviments }
+module.exports = {
+  listProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  historicalMoviments,
+};
