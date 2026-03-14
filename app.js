@@ -7,6 +7,10 @@ const exitRoutes = require("./src/routes/exit.routes");
 const userRoutes = require("./src/routes/user.routes");
 const fornecedorRoutes = require("./src/routes/fornecedorRoutes");
 const categoriasRoutes = require("./src/routes/categoriasRoutes");
+const entradaRoutes = require("./src/routes/entradaRoutes");
+const saidaRoutes = require("./src/routes/saidaRoutes");
+const umedidaRoutes = require("./src/routes/unidadeDeMedidaRoutes");
+const localizacaoRoutes = require("./src/routes/localizacaoRoutes");
 
 const dataBase = require("./src/routes/database.routes");
 
@@ -23,5 +27,7 @@ app.use("/usuarios", userRoutes); // Rota para usuários
 app.use("/fornecedores", fornecedorRoutes);
 app.use("/categorias", categoriasRoutes);
 app.use("/database", dataBase);
+app.use("/unidademedidas", umedidaRoutes);
+app.use("/localizacoes", localizacaoRoutes);
 
 module.exports = app;
