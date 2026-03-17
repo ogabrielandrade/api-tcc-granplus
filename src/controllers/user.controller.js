@@ -212,6 +212,8 @@ exports.deleteUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   const { user_nome, user_senha } = req.body;
 
+  console.log("1. Chegou da tela:", user_nome, user_senha);
+
   try {
     // validar campos obrigatórios
     if (!user_nome || !user_senha) {
@@ -236,6 +238,8 @@ exports.loginUser = async (req, res) => {
 
     const user = usuarios[0];
 
+    console.log("2. O banco achou:", usuarios);
+
     // verificar se está ativo
     if (user.user_ativo === 0) {
       return res.status(403).json({
@@ -245,6 +249,8 @@ exports.loginUser = async (req, res) => {
 
     // verificar senha
     const senhaValida = await bcrypt.compare(user_senha, user.user_senha);
+
+    console.log("3. Senha bateu com o Hash?:", senhaValida);
 
     if (!senhaValida) {
       return res.status(401).json({
