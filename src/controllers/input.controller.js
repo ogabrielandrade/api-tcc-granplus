@@ -1,13 +1,11 @@
-const pool              = require("../config/database");
+const pool = require("../config/database");
 const { registerAudit } = require('../services/audit.services');
 
-
-// REGISTRAR PRODUTO
+// REGISTRAR PRODUTO (ENTRADA)
 const registerInput = async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
-
     const {
       loc_id,
       fncd_id,
@@ -16,9 +14,10 @@ const registerInput = async (req, res) => {
       produtos
     } = req.body;
 
-    await connection.beginTransaction(); // começo da transição, so será interompida por um commit (se der certo) ou por um rollback (se der erro)
+    // Começo da transação: garante que ou salva tudo, ou não salva nada
+    await connection.beginTransaction(); 
 
-    // inserir entrada
+    // 1. Inserir a "Capa" da Entrada (Nota Fiscal/Registro Geral)
     const [inputResult] = await connection.query(
       `INSERT INTO entrada 
       (loc_id, fncd_id, ent_data_compra, ent_valor_compra, ent_data)
@@ -28,11 +27,11 @@ const registerInput = async (req, res) => {
 
     const ent_id = inputResult.insertId;
 
-    await registerAudit(req.user.user_id, "Atualização de estoque - saída", "entrada_produtos", inputResult.insertId);
+    // Correção: Alterado de "saída" para "entrada"
+    await registerAudit(req.user.user_id, "Atualização de estoque - entrada", "entrada", ent_id);
 
-    // inserir produtos da entrada
+    // 2. Inserir os produtos da entrada
     for (const product of produtos) {
-
       await connection.query(
         `INSERT INTO entrada_produtos
         (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote)
@@ -44,9 +43,11 @@ const registerInput = async (req, res) => {
           product.lote
         ]
       );
-
+      // ⚡ AQUI A MÁGICA ACONTECE: Ao rodar o INSERT acima, a Trigger do MySQL
+      // é disparada e atualiza o 'pdt_estoque_atual' na tabela 'produto' automaticamente!
     }
 
+    // 3. Tudo deu certo? Confirma a transação
     await connection.commit();
 
     res.status(201).json({
@@ -55,7 +56,7 @@ const registerInput = async (req, res) => {
     });
 
   } catch (error) {
-
+    // Deu algum erro? Desfaz tudo que foi inserido nesta tentativa
     await connection.rollback();
 
     console.error("Erro ao registrar entrada:", error);
@@ -65,9 +66,8 @@ const registerInput = async (req, res) => {
     });
 
   } finally {
-
+    // Libera a conexão de volta para o Pool
     connection.release();
-
   }
 };
 
