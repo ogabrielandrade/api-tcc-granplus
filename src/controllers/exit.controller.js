@@ -3,15 +3,16 @@ const { registerAudit } = require('../services/audit.services');
 
 const registerExit = async (req, res) => {
   try {
-    const { lcl_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa } =
-      req.body;
+    const { lcl_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa } = req.body;
 
-    // descobrir qual produto está na localização
+    // 1. Descobrir qual produto está na localização E pegar o saldo global pronto
+    // Trocamos as 3 queries antigas por 1 único JOIN super rápido
     const [produtoLocal] = await pool.query(
-      `SELECT pdt_id
-       FROM localizacao_produtos
-       WHERE lcl_id = ?`,
-       [lcl_id],
+      `SELECT lp.pdt_id, p.pdt_estoque_atual
+       FROM localizacao_produtos lp
+       JOIN produto p ON lp.pdt_id = p.pdt_id
+       WHERE lp.lcl_id = ?`,
+       [lcl_id]
     );
 
     if (produtoLocal.length === 0) {
@@ -20,30 +21,10 @@ const registerExit = async (req, res) => {
       });
     }
 
-    const pdt_id = produtoLocal[0].pdt_id;
+    // Pegamos o estoque atual que a Trigger já calculou e salvou na tabela 'produto'
+    const estoqueAtual = produtoLocal[0].pdt_estoque_atual;
 
-
-    // calcular entradas
-    const [entradas] = await pool.query(
-      `SELECT IFNULL(SUM(ent_prod_qtde),0) AS total
-       FROM entrada_produtos
-       WHERE pdt_id = ?`,
-      [pdt_id]
-    );
-
-    //  calcular saídas
-    const [saidas] = await pool.query(
-      `SELECT IFNULL(SUM(sp.lcl_qtde),0) AS total
-       FROM saida_produtos sp
-       JOIN localizacao_produtos lp ON sp.lcl_id = lp.lcl_id
-       WHERE lp.pdt_id = ?`,
-      [pdt_id]
-    );
-
-    const estoqueAtual =
-      entradas[0].total - saidas[0].total;
-
-      //  validação de estoque
+    // 2. Validação de estoque
     if (lcl_qtde > estoqueAtual) {
       return res.status(400).json({
         erro: "Estoque insuficiente",
@@ -51,19 +32,29 @@ const registerExit = async (req, res) => {
       });
     }
 
+    // 3. Registrar a saída
+    // ⚡ AQUI A MÁGICA ACONTECE: O INSERT dispara a Trigger no banco,
+    // que vai lá na tabela 'produto' e subtrai a quantidade do 'pdt_estoque_atual'.
     const [result] = await pool.query(
       `INSERT INTO saida_produtos
       (lcl_id, lcl_qtde, lcl_data_saida, lcl_destino, lcl_tipo, lcl_justificativa)
       VALUES (?, ?, NOW(), ?, ?, ?)`,
-      [lcl_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa],
+      [lcl_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa]
     );
 
-    await registerAudit(req.user.user_id, "Atualização de estoque - saída", "saida_produtos", result.insertId);
+    // 4. Registrar auditoria (Ficou no lugar perfeito!)
+    await registerAudit(
+      req.user.user_id, 
+      "Atualização de estoque - saída", 
+      "saida_produtos", 
+      result.insertId
+    );
 
     res.status(201).json({
       mensagem: "Saída registrada com sucesso",
       sal_id: result.insertId,
     });
+    
   } catch (error) {
     console.error("Erro ao registrar saída:", error);
 
