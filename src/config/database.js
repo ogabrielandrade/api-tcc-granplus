@@ -3,11 +3,10 @@ const mysql = require("mysql2/promise");
 
 const config = {
   // Obtém as configurações do banco de dados a partir do arquivo .env
-  host: process.env.BD_SERVIDOR,
-  port: process.env.BD_PORTA || 3306, // Porta padrão 3306 se não definida
-  user: process.env.BD_USUARIO,
-  password: process.env.BD_SENHA,
-  database: process.env.BD_BANCO,
+  uri: process.env.MYSQL_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
   waitForConnections: true,
   connectionLimit: 10, // Pode ajustar conforme a necessidade
   queueLimit: 0,
