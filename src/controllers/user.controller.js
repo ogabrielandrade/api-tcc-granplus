@@ -1,7 +1,6 @@
-const pool   = require("../config/database");
-const bcrypt = require("bcrypt");
-const jwt    = require("jsonwebtoken");
-
+const pool = require("../config/database");
+const jwt = require("jsonwebtoken");
+const { passwordWithHash, bcryptCompare } = require("../services/bcrypt");
 
 // listar todos os usuarios
 exports.getAllUsers = async (req, res) => {
@@ -13,19 +12,18 @@ exports.getAllUsers = async (req, res) => {
         user_nivel_acesso,
         user_ativo
       FROM usuarios
-      WHERE user_ativo = 1`
+      WHERE user_ativo = 1`,
     );
 
     return res.status(200).json({
       total: usuarios.length,
-      usuarios: usuarios
+      usuarios: usuarios,
     });
-
   } catch (error) {
     console.error("Erro ao buscar usuários:", error);
 
     return res.status(500).json({
-      erro: "Erro ao buscar usuários no banco"
+      erro: "Erro ao buscar usuários no banco",
     });
   }
 };
@@ -52,7 +50,6 @@ exports.getUserById = async (req, res) => {
     }
 
     return res.status(200).json(usuario[0]);
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -67,8 +64,8 @@ exports.createUser = async (req, res) => {
 
   // 1. Validação de Entrada: Garante que todos os dados obrigatórios foram enviados
   if (!user_nome || !user_senha || !user_nivel_acesso) {
-    return res.status(400).json({ 
-      erro: "Nome, senha e nível de acesso são obrigatórios" 
+    return res.status(400).json({
+      erro: "Nome, senha e nível de acesso são obrigatórios",
     });
   }
 
@@ -76,7 +73,7 @@ exports.createUser = async (req, res) => {
     // 2. Verificar se o usuário já existe
     const [existeUsuario] = await pool.query(
       `SELECT user_id FROM usuarios WHERE user_nome = ?`,
-      [user_nome] 
+      [user_nome],
     );
 
     if (existeUsuario.length > 0) {
@@ -84,16 +81,17 @@ exports.createUser = async (req, res) => {
     }
 
     // 3. Criptografar senha (Hash)
-    const senhaHash = await bcrypt.hash(user_senha, 10);// o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
+    const senhaHash = await passwordWithHash(user_senha);
+    // ***const senhaHash = await bcrypt.hash(user_senha, 10);// o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // 4. Inserir no banco
     const [result] = await pool.query(
       `INSERT INTO usuarios (user_nome, user_senha, user_nivel_acesso)
        VALUES (?, ?, ?)`,
-      [user_nome, senhaHash, user_nivel_acesso]
+      [user_nome, senhaHash, user_nivel_acesso],
     );
 
-    // 5. Resposta de Sucesso 
+    // 5. Resposta de Sucesso
     return res.status(201).json({
       mensage: "Usuário criado com sucesso",
       usuario: {
@@ -102,7 +100,6 @@ exports.createUser = async (req, res) => {
         user_nivel_acesso,
       },
     });
-
   } catch (error) {
     console.error("Erro ao criar usuário:", error);
     return res.status(500).json({
@@ -127,7 +124,7 @@ exports.updateUser = async (req, res) => {
     // verificar se usuário existe
     const [usuarioExiste] = await pool.query(
       `SELECT user_id FROM usuarios WHERE user_id = ?`,
-      [id]
+      [id],
     );
 
     if (usuarioExiste.length === 0) {
@@ -141,7 +138,7 @@ exports.updateUser = async (req, res) => {
       `SELECT user_id
        FROM usuarios
        WHERE user_nome = ? AND user_id != ?`,
-      [user_nome, id]
+      [user_nome, id],
     );
 
     if (nomeExiste.length > 0) {
@@ -160,14 +157,13 @@ exports.updateUser = async (req, res) => {
            user_nivel_acesso = IF(?, ?, user_nivel_acesso),
            user_ativo = ?
        WHERE user_id = ?`,
-      [user_nome, isAdmin, user_nivel_acesso, user_ativo, id]
+      [user_nome, isAdmin, user_nivel_acesso, user_ativo, id],
     );
 
     return res.status(200).json({
       mensagem: "Usuário atualizado com sucesso",
       user_id: id,
     });
-
   } catch (error) {
     console.error("Erro ao atualizar usuário:", error);
 
@@ -186,7 +182,7 @@ exports.deleteUser = async (req, res) => {
       `UPDATE usuarios
        SET user_ativo = 0
        WHERE user_id = ? AND user_ativo = 1`,
-      [id]
+      [id],
     );
 
     // nenhum registro afetado
@@ -199,7 +195,6 @@ exports.deleteUser = async (req, res) => {
     return res.status(200).json({
       mensagem: "Usuário desativado com sucesso",
     });
-
   } catch (error) {
     console.error("Erro ao desativar usuário:", error);
     return res.status(500).json({
@@ -227,7 +222,7 @@ exports.loginUser = async (req, res) => {
       `SELECT user_id, user_nome, user_senha, user_nivel_acesso, user_ativo
        FROM usuarios
        WHERE user_nome = ?`,
-      [user_nome]
+      [user_nome],
     );
 
     if (usuarios.length === 0) {
@@ -248,7 +243,8 @@ exports.loginUser = async (req, res) => {
     }
 
     // verificar senha
-    const senhaValida = await bcrypt.compare(user_senha, user.user_senha);
+    const senhaValida = await bcryptCompare(user_senha, user.user_senha);
+    // *** const senhaValida = await bcrypt.compare(user_senha, user.user_senha);
 
     console.log("3. Senha bateu com o Hash?:", senhaValida);
 
@@ -266,7 +262,7 @@ exports.loginUser = async (req, res) => {
         user_nivel_acesso: user.user_nivel_acesso,
       },
       process.env.JWT_SECRET || "granplus_fallback_secret",
-      { expiresIn: "12h" }
+      { expiresIn: "12h" },
     );
 
     return res.status(200).json({
@@ -278,7 +274,6 @@ exports.loginUser = async (req, res) => {
         user_nivel_acesso: user.user_nivel_acesso,
       },
     });
-
   } catch (error) {
     console.error("Erro no login:", error);
 
