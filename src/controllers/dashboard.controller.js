@@ -35,11 +35,29 @@ exports.getDashboardResume = async (req, res) => {
       WHERE DATE(lcl_data_saida) = CURDATE()
     `);
 
+    const [totalMovimentacoes] = await pool.query(`
+      select p.pdt_id, 
+	           p.pdt_nome,
+       (
+              select ifnull(sum(ep.ent_prod_qtde), 0) as total_entradas
+                from entrada_produtos ep
+                where ep.pdt_id = p.pdt_id)
+              +
+              (select ifnull(sum(sp.lcl_qtde), 0) as total_saidas
+                from localizacao_produtos lp
+                join saida_produtos sp on lp.lcl_id = sp.lcl_id
+                where lp.pdt_id = p.pdt_id ) as movimentacoes
+                from produto p
+                order by movimentacoes desc
+                limit 0, 5; 
+      `);
+
     res.json({
       total_produtos: totalProdutos[0].total_produtos,
       produtos_abaixo_minimo: estoqueMinimo[0].abaixo_minimo,
       entradas_hoje: entradasHoje[0].entradas_hoje,
       saidas_hoje: saidasHoje[0].saidas_hoje,
+      total_movimentacoes: totalMovimentacoes
     });
   } catch (error) {
     console.error("Erro no dashboard:", error);

@@ -10,7 +10,7 @@ const categoriasRoutes = require("./src/routes/categoriasRoutes");
 const relatorios = require("./src/routes/report.routes");
 const umedidaRoutes = require("./src/routes/unidadeDeMedidaRoutes");
 const localizacaoRoutes = require("./src/routes/localizacaoRoutes");
-
+const dashboardRoutes = require('./src/routes/dashboard.routes');
 const dataBase = require("./src/routes/database.routes");
 
 const app = express();
@@ -29,5 +29,6 @@ app.use("/relatorios", relatorios);
 app.use("/database", dataBase);
 app.use("/unidademedidas", umedidaRoutes);
 app.use("/localizacoes", localizacaoRoutes);
+app.use("/dashboard", dashboardRoutes)
 
 module.exports = app;

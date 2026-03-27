@@ -6,7 +6,6 @@ const registerExit = async (req, res) => {
     const { lcl_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa } = req.body;
 
     // 1. Descobrir qual produto está na localização E pegar o saldo global pronto
-    // Trocamos as 3 queries antigas por 1 único JOIN super rápido
     const [produtoLocal] = await pool.query(
       `SELECT lp.pdt_id, p.pdt_estoque_atual
        FROM localizacao_produtos lp
@@ -33,7 +32,7 @@ const registerExit = async (req, res) => {
     }
 
     // 3. Registrar a saída
-    // ⚡ AQUI A MÁGICA ACONTECE: O INSERT dispara a Trigger no banco,
+    // O INSERT dispara a Trigger no banco,
     // que vai lá na tabela 'produto' e subtrai a quantidade do 'pdt_estoque_atual'.
     const [result] = await pool.query(
       `INSERT INTO saida_produtos
