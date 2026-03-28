@@ -1,6 +1,8 @@
 const pool = require("../config/database");
 
-exports.getDashboardResume = async (req, res) => {
+const getDashboardResume = async (req, res) => {
+  const { pdt_id } = req.params;
+
   try {
     const [totalProdutos] = await pool.query(`
                 SELECT COUNT(*) AS total_produtos
@@ -57,10 +59,33 @@ exports.getDashboardResume = async (req, res) => {
       produtos_abaixo_minimo: estoqueMinimo[0].abaixo_minimo,
       entradas_hoje: entradasHoje[0].entradas_hoje,
       saidas_hoje: saidasHoje[0].saidas_hoje,
-      total_movimentacoes: totalMovimentacoes
+      total_movimentacoes: totalMovimentacoes,
     });
   } catch (error) {
     console.error("Erro no dashboard:", error);
     res.status(500).json({ erro: "Erro ao carregar dashboard" });
   }
 };
+
+const resumeForProduct = async (req, res) => {
+  const { pdt_id } = req.params;
+
+  try {
+    const [estoqueAtualPorProduto] = await pool.query(
+      `
+        SELECT pdt_id, pdt_nome, pdt_estoque_minimo, pdt_estoque_atual
+          FROM produto
+          WHERE pdt_id = ?
+        `,
+      [pdt_id],
+    );
+
+    res.status(200).json({
+      estoqueAtualPorProduto
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+module.exports = { getDashboardResume, resumeForProduct };

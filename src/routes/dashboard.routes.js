@@ -1,8 +1,9 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const { getDashboardResume } = require('../controllers/dashboard.controller');
+const {getDashboardResume, resumeForProduct} = require("../controllers/dashboard.controller");
 
-router.get('/resumo', getDashboardResume);
+router.get("/resumo", getDashboardResume);
+router.get("/resumo/:pdt_id", resumeForProduct);
 
 module.exports = router;
