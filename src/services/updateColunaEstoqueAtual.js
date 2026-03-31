@@ -16,6 +16,7 @@ const updateColunaEstoqueAtual = async (db = pool) => {
                 FROM saida_produtos sp
                 JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
                 WHERE lp.pdt_id = p.pdt_id
+                
             ), 0); 
             `);
     return rows;
