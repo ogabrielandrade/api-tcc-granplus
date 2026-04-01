@@ -1,9 +1,9 @@
-const db = require("../config/database");
+const pool = require("../config/database");
 
 // listagem de categorias
 exports.getAll = async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM categorias");
+    const [rows] = await pool.query("SELECT * FROM categorias");
     res.json(rows);
   } catch (error) {
     res.status(500).json({ erro: "Erro ao listar categorias" });
@@ -15,7 +15,7 @@ exports.getById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.query("SELECT * FROM categorias WHERE cat_id = ?", [
+    const [rows] = await pool.query("SELECT * FROM categorias WHERE cat_id = ?", [
       id,
     ]);
 
@@ -45,7 +45,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [categoriaExistente] = await db.query(
+    const [categoriaExistente] = await pool.query(
       "SELECT cat_id FROM categorias WHERE LOWER(TRIM(cat_nome)) = LOWER(TRIM(?)) LIMIT 1",
       [nomeCategoria],
     );
@@ -56,7 +56,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
+    const [result] = await pool.query(
       "INSERT INTO categorias (cat_nome) VALUES (?)",
       [nomeCategoria],
     );
@@ -84,7 +84,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [categoriaExistente] = await db.query(
+    const [categoriaExistente] = await pool.query(
       "SELECT cat_id FROM categorias WHERE cat_id = ? LIMIT 1",
       [id],
     );
@@ -93,7 +93,7 @@ exports.update = async (req, res) => {
       return res.status(404).json({ mensagem: "Categoria não encontrada" });
     }
 
-    const [categoriaDuplicada] = await db.query(
+    const [categoriaDuplicada] = await pool.query(
       "SELECT cat_id FROM categorias WHERE LOWER(TRIM(cat_nome)) = LOWER(TRIM(?)) AND cat_id <> ? LIMIT 1",
       [nomeCategoria, id],
     );
@@ -104,7 +104,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    await db.query("UPDATE categorias SET cat_nome = ? WHERE cat_id = ?", [
+    await pool.query("UPDATE categorias SET cat_nome = ? WHERE cat_id = ?", [
       nomeCategoria,
       id,
     ]);
@@ -116,7 +116,7 @@ exports.update = async (req, res) => {
 };
 
 // excluir categoria
-exports.delete = async (req, res) => {
+/*exports.delete = async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -131,5 +131,32 @@ exports.delete = async (req, res) => {
     res.json({ mensagem: "Categoria removida com sucesso" });
   } catch (error) {
     res.status(500).json({ erro: "Erro ao remover categoria" });
+  }
+};*/
+
+exports.delete = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await pool.query("DELETE FROM categorias WHERE cat_id = ?", [
+      id,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensagem: "Categoria não encontrada" });
+    }
+
+    res.json({ mensagem: "Categoria removida com sucesso" });
+  } catch (error) {
+    console.error("Erro ao deletar categoria:", error);
+
+    // 1451 é o código do MySQL para "Cannot delete or update a parent row: a foreign key constraint fails"
+    if (error.errno === 1451) {
+      return res.status(400).json({ 
+        erro: "Não é possível excluir esta categoria porque existem produtos vinculados a ela. Remova ou altere a categoria dos produtos primeiro." 
+      });
+    }
+
+    res.status(500).json({ erro: "Erro interno ao remover categoria" });
   }
 };

@@ -11,7 +11,7 @@ const calculateStock = async (req, res) => {
          pdt_nome,
          pdt_estoque_atual AS estoque_atual
        FROM produto
-       WHERE pdt_id = ?`,
+       WHERE pdt_id = ? AND pdt_ativo = 1`,
       [id]
     );
 
@@ -36,8 +36,12 @@ const getAllStock = async (req, res) => {
       SELECT 
           pdt_id,
           pdt_nome,
+          pdt_estoque_minimo,
+          pdt_descricao,
+          pdt_codigo,
           pdt_estoque_atual AS estoque_atual
       FROM produto
+      WHERE pdt_ativo = 1
       ORDER BY pdt_nome
     `);
 

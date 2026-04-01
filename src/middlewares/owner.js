@@ -7,7 +7,7 @@ const requireOwnerOrAdmin = (req, res, next) => {
     });
   }
 
-  const userId = parseInt(req.params.id);
+  const userId = parseInt(req.params.id, 10); // ID do usuário na URL, convertido para número decimal
   const loggedUserId = req.user.user_id;
   const userLevel = req.user.user_nivel_acesso;
 

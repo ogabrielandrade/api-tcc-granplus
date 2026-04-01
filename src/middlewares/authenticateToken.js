@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const authenticateToken = (req, res, next) => {
   // Pegar o token do cabeçalho Authorization
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+  const token = authHeader && authHeader.split(" ")[1]; // Extrai apenas o TOKEN após "Bearer"
 
 
 
@@ -14,11 +14,20 @@ const authenticateToken = (req, res, next) => {
       erro: "Token de acesso requerido",
     });
   }
+  // 1. Busca a chave do .env 
+  const jwtSecret = process.env.JWT_SECRET;
 
-  // Verificar se o token é válido
+  // 2. Trava de segurança: impede o login se a chave não existir 
+  if (!jwtSecret) {
+    console.error("ERRO CRÌTICO no Middleware: Variável JWT_SECRET não configurada no env !");
+    return res.status(500).json({
+      erro: "Erro interno de configuração do servidor",
+    });
+  }
+  //3. Verificar se o token é válido
   jwt.verify(
     token,
-    process.env.JWT_SECRET || "granplus_fallback_secret",
+    jwtSecret,
     (err, user) => {
       if (err) {
         return res.status(403).json({
