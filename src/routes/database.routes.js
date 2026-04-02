@@ -2,6 +2,12 @@ const express = require("express");
 const router = express.Router();
 const databaseController = require("../controllers/database.controller");
 
+// Middlewares de Segurança
+const authenticateToken = require("../middlewares/authenticateToken");
+const requireAdmin = require("../middlewares/requireAdmin");
+
+router.use(authenticateToken);
+
 router.get("/teste", databaseController.testDataBase);
 
 router.get("/testebanco", (req, res) => {

@@ -5,13 +5,18 @@ const { registerAudit } = require("../services/audit.services.js");
 
 const listProducts = async (req, res) => {
   try {
-    // Adicionado: Agora a lista principal já traz o estoque atualizado!
+    // Adicionado: Agora a lista principal já traz o estoque atualizado e o nome da categoria!
     const [rows] = await pool.query(
-      "SELECT *, pdt_estoque_atual FROM produto WHERE pdt_ativo = 1"
+      //"SELECT *, pdt_estoque_atual FROM produto WHERE pdt_ativo = 1"
+      `SELECT p.*, c.cat_nome 
+       FROM produto p 
+       LEFT JOIN categorias c ON p.cat_id = c.cat_id
+       WHERE p.pdt_ativo = 1
+       ORDER BY p.pdt_nome ASC`
     );
     res.status(200).json(rows);
   } catch (error) {
-    console.error("Erro ao buscar produtos");
+    console.error("Erro ao buscar produtos", error);
     res.status(500).json({ error: "Erro ao buscar produtos" });
   }
 };
@@ -29,6 +34,26 @@ const createProduct = async (req, res) => {
       unid_med_id,
     } = req.body;
 
+    // 1. Validação Básica
+    const nome = typeof pdt_nome === "string" ? pdt_nome.trim() : "";
+    const codigo = typeof pdt_codigo === "string" ? pdt_codigo.trim() : "";
+
+    if (!nome || !codigo || !cat_id || !unid_med_id) {
+      return res.status(400).json({ 
+        error: "Nome, código, categoria e unidade de medida são obrigatórios" 
+      });
+    }
+
+    // 2. Verifica se o Código já existe (Anti-Duplicação)
+    const [codigoExiste] = await pool.query(
+      "SELECT pdt_id FROM produto WHERE pdt_codigo = ? LIMIT 1",
+      [codigo]
+    );
+
+    if (codigoExiste.length > 0) {
+      return res.status(409).json({ error: "Já existe um produto com este código" });
+    }
+
     const [result] = await pool.query(
       `INSERT INTO produto 
        (pdt_nome, pdt_codigo, pdt_descricao, pdt_estoque_minimo, pdt_ativo, cat_id, unid_med_id) 
@@ -36,15 +61,17 @@ const createProduct = async (req, res) => {
       [
         pdt_nome,
         pdt_codigo,
-        pdt_descricao,
-        pdt_estoque_minimo,
+        pdt_descricao || "", // Evita inserir NULL, coloca string vazia 
+        Number(pdt_estoque_minimo) || 0, // Se não enviar, assume 0
         pdt_ativo,
         cat_id,
         unid_med_id,
       ]
     );
 
-    await registerAudit(req.user.user_id, "Produto criado", "produto", result.insertId);
+    try {
+      await registerAudit(req.user.user_id, "Produto criado", "produto", result.insertId);
+    } catch (e) { console.error("Aviso: Falha ao registrar auditoria de criação de produto", e); }
 
     res.status(201).json({
       message: "Produto criado com sucesso",
@@ -70,6 +97,25 @@ const updateProduct = async (req, res) => {
       unid_med_id,
     } = req.body;
 
+    const nome = typeof pdt_nome === "string" ? pdt_nome.trim() : "";
+    const codigo = typeof pdt_codigo === "string" ? pdt_codigo.trim() : "";
+
+    if (!nome || !codigo || !cat_id || !unid_med_id) {
+      return res.status(400).json({ 
+        error: "Nome, código, categoria e unidade de medida são obrigatórios" 
+      });
+    }
+
+    // Anti-Duplicação de Código na Edição
+    const [codigoExiste] = await pool.query(
+      "SELECT pdt_id FROM produto WHERE pdt_codigo = ? AND pdt_id <> ? LIMIT 1",
+      [codigo, id]
+    );
+
+    if (codigoExiste.length > 0) {
+      return res.status(409).json({ error: "Este código já está em uso por outro produto" });
+    }
+
     const [result] = await pool.query(
       `UPDATE produto SET
         pdt_nome = ?,
@@ -81,10 +127,10 @@ const updateProduct = async (req, res) => {
         unid_med_id = ?
        WHERE pdt_id = ?`,
       [
-        pdt_nome,
-        pdt_codigo,
+        nome,
+        codigo,
         pdt_descricao,
-        pdt_estoque_minimo,
+        Number(pdt_estoque_minimo) || 0,
         pdt_ativo,
         cat_id,
         unid_med_id,
@@ -97,11 +143,13 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Produto não encontrado" });
     }
 
-    await registerAudit(req.user.user_id, "Produto atualizado", "produto", id);
+    try{
+      await registerAudit(req.user.user_id, "Produto atualizado", "produto", id);
+    } catch (e) { console.error("Aviso: Falha ao registrar auditoria de atualização de produto", e); }
 
     res.json({ mensagem: "Produto atualizado com sucesso" });
   } catch (error) {
-    console.error("Erro ao atualizar produto");
+    console.error("Erro ao atualizar produto", error);
     res.status(500).json({ error: "Erro ao atualizar produto" });
   }
 };
@@ -121,7 +169,9 @@ const deleteProduct = async (req, res) => {
       return res.status(404).json({ message: "Produto não encontrado" });
     }
 
-    await registerAudit(req.user.user_id, "Produto inativado", "produto", id);
+    try{
+      await registerAudit(req.user.user_id, "Produto inativado", "produto", id);
+    } catch (e) { console.error("Aviso: Falha ao registrar auditoria de inativação de produto", e); }
 
     res.status(200).json({ message: "Produto desativado com sucesso" });
   } catch (error) {

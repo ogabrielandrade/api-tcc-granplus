@@ -1,9 +1,9 @@
-const db = require("../config/database");
+const pool = require("../config/database");
 
 // listagem de fornecedores
 exports.getAll = async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM fornecedor");
+    const [rows] = await pool.query("SELECT * FROM fornecedor");
     res.json(rows);
   } catch (error) {
     res.status(500).json({ erro: "Erro ao listar fornecedores" });
@@ -15,7 +15,7 @@ exports.getById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       "SELECT * FROM fornecedor WHERE fncd_id = ?",
       [id],
     );
@@ -62,9 +62,15 @@ exports.create = async (req, res) => {
       });
     }
 
-    const documentoValido = /^\d{11}$|^\d{14}$/.test(documento);
+    /*const documentoValido = /^\d{11}$|^\d{14}$/.test(documento);
 
     if (!documentoValido) {
+      return res.status(400).json({
+        erro: "CPF/CNPJ deve conter apenas números e ter 11 ou 14 dígitos",
+      });
+    }  Alex*/ 
+      //Validação direta do Regex (CPF ou CNPJ), para evitar confusão lógica de variáveis booleanas
+    if (!/^\d{11}$|^\d{14}$/.test(documento)) {
       return res.status(400).json({
         erro: "CPF/CNPJ deve conter apenas números e ter 11 ou 14 dígitos",
       });
@@ -76,7 +82,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [fornecedorPorDocumento] = await db.query(
+    const [fornecedorPorDocumento] = await pool.query(
       "SELECT fncd_id FROM fornecedor WHERE fncd_documento = ? LIMIT 1",
       [documento],
     );
@@ -87,7 +93,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
+    const [result] = await pool.query(
       `INSERT INTO fornecedor
       (fncd_nome, fncd_documento, fncd_endereco, fncd_tel, fncd_email)
       VALUES (?, ?, ?, ?, ?)`,
@@ -99,7 +105,8 @@ exports.create = async (req, res) => {
       id: result.insertId,
     });
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao criar fornecedor" });
+    console.error("Erro ao criar fornecedor:", error);
+    res.status(500).json({ erro: "Erro interno ao criar fornecedor" });
   }
 };
 
@@ -137,9 +144,14 @@ exports.update = async (req, res) => {
       });
     }
 
-    const documentoValido = /^\d{11}$|^\d{14}$/.test(documento);
+    /*const documentoValido = /^\d{11}$|^\d{14}$/.test(documento);
 
     if (!documentoValido) {
+      return res.status(400).json({
+        erro: "CPF/CNPJ deve conter apenas números e ter 11 ou 14 dígitos",
+      });
+    }*/
+    if (!/^\d{11}$|^\d{14}$/.test(documento)) {
       return res.status(400).json({
         erro: "CPF/CNPJ deve conter apenas números e ter 11 ou 14 dígitos",
       });
@@ -151,7 +163,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [fornecedorExistente] = await db.query(
+    const [fornecedorExistente] = await pool.query(
       "SELECT fncd_id FROM fornecedor WHERE fncd_id = ? LIMIT 1",
       [id],
     );
@@ -160,7 +172,7 @@ exports.update = async (req, res) => {
       return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
     }
 
-    const [fornecedorPorDocumento] = await db.query(
+    const [fornecedorPorDocumento] = await pool.query(
       "SELECT fncd_id FROM fornecedor WHERE fncd_documento = ? AND fncd_id <> ? LIMIT 1",
       [documento, id],
     );
@@ -171,7 +183,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(
+    const [result] = await pool.query(
       `UPDATE fornecedor SET
       fncd_nome = ?,
       fncd_documento = ?,
@@ -184,7 +196,8 @@ exports.update = async (req, res) => {
 
     res.json({ mensagem: "Fornecedor atualizado com sucesso" });
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao atualizar fornecedor" });
+    console.error("Erro ao atualizar fornecedor:", error);
+    res.status(500).json({ erro: "Erro interno ao atualizar fornecedor" });
   }
 };
 
@@ -193,7 +206,7 @@ exports.delete = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db.query(
+    const [result] = await pool.query(
       "DELETE FROM fornecedor WHERE fncd_id = ?",
       [id],
     );
@@ -204,6 +217,11 @@ exports.delete = async (req, res) => {
 
     res.json({ mensagem: "Fornecedor removido com sucesso" });
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao remover fornecedor" });
+    if (error.code === "ER_ROW_IS_REFERENCED_2" || error.errno === 1451) {
+      return res.status(400).json({
+          erro: "Não é possível excluir o fornecedor porque existem entradas vinculadas a ele no estoque.",
+        });
+    }
+    res.status(500).json({ erro: "Erro ao remover fornecedor", detalhe: error.message });
   }
 };

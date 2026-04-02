@@ -1,11 +1,12 @@
-const db = require("../config/database");
+const pool = require("../config/database");
 
 // LISTAR TODAS AS UNIDADES
 exports.getAll = async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM unidade_medida");
+    const [rows] = await pool.query("SELECT * FROM unidade_medida");
     res.json(rows);
   } catch (error) {
+    console.error("Erro ao listar unidades de medida:", error);
     res.status(500).json({ erro: "Erro ao listar unidades de medida" });
   }
 };
@@ -15,7 +16,7 @@ exports.getById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.query(
+    const [rows] = await pool.query(
       "SELECT * FROM unidade_medida WHERE unid_med_id = ?",
       [id],
     );
@@ -28,6 +29,7 @@ exports.getById = async (req, res) => {
 
     res.json(rows[0]);
   } catch (error) {
+    console.error("Erro ao buscar unidade de medida:", error);
     res.status(500).json({ erro: "Erro ao buscar unidade de medida" });
   }
 };
@@ -49,15 +51,23 @@ exports.create = async (req, res) => {
   `;
 
   try {
-    const sigla = String(unid_med_sigla).trim();
+    //const sigla = String(unid_med_sigla).trim();
+    const sigla = typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
 
     if (!sigla) {
       return res.status(400).json({
-        erro: "O campo Sigla da unidade de medida nao pode estar em branco",
+        erro: "O campo Sigla da unidade de medida é obrigatório e não pode estar em branco",
       });
     }
 
-    const [unidadeExistente] = await db.query(
+    // Validação proativa de tamanho máximo
+    if (sigla.length > 3) {
+      return res.status(400).json({
+        erro: "A sigla da unidade de medida deve ter no máximo 3 caracteres",
+      });
+    }
+
+    const [unidadeExistente] = await pool.query(
       "SELECT unid_med_id FROM unidade_medida WHERE LOWER(TRIM(unid_med_sigla)) = LOWER(TRIM(?)) LIMIT 1",
       [sigla],
     );
@@ -68,15 +78,16 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(sql, [sigla]);
+    const [result] = await pool.query(sql, [sigla]);
 
-    res.json({
+    res.status(201).json({
       message: "Unidade criada com sucesso",
       id: result.insertId,
     });
   } catch (error) {
+    console.error("Erro ao criar unidade de medida, utilize até três caracteres:", error);
     res.status(500).json({
-      erro: "Erro ao criar unidade de medida, utilize até três caracteres",
+      erro: "Erro interno ao criar unidade de medida",
     });
   }
 };
@@ -99,15 +110,22 @@ exports.update = async (req, res) => {
   `;
 
   try {
-    const sigla = String(unid_med_sigla).trim();
+    //const sigla = String(unid_med_sigla).trim();
+    const sigla = typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
 
     if (!sigla) {
       return res.status(400).json({
-        erro: "O campo Sigla da unidade de medida nao pode estar em branco",
+        erro: "O campo Sigla da unidade de medida é obrigatório e não pode estar em branco",
       });
     }
 
-    const [unidadeExistente] = await db.query(
+    if (sigla.length > 3) {
+      return res.status(400).json({
+        erro: "A sigla da unidade de medida deve ter no máximo 3 caracteres",
+      });
+    }
+
+    const [unidadeExistente] = await pool.query(
       "SELECT unid_med_id FROM unidade_medida WHERE unid_med_id = ? LIMIT 1",
       [id],
     );
@@ -118,7 +136,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [unidadeDuplicada] = await db.query(
+    const [unidadeDuplicada] = await pool.query(
       "SELECT unid_med_id FROM unidade_medida WHERE LOWER(TRIM(unid_med_sigla)) = LOWER(TRIM(?)) AND unid_med_id <> ? LIMIT 1",
       [sigla, id],
     );
@@ -129,7 +147,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [result] = await db.query(sql, [sigla, id]);
+    const [result] = await pool.query(sql, [sigla, id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -141,8 +159,9 @@ exports.update = async (req, res) => {
       message: "Unidade atualizada com sucesso",
     });
   } catch (error) {
+    console.error("Erro ao atualizar unidade de medida:", error);
     res.status(500).json({
-      erro: "Erro ao atualizar unidade de medida, utilize até três caracteres",
+      erro: "Erro interno ao atualizar unidade de medida",
     });
   }
 };
@@ -152,7 +171,7 @@ exports.delete = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db.query(
+    const [result] = await pool.query(
       "DELETE FROM unidade_medida WHERE unid_med_id = ?",
       [id],
     );
@@ -167,6 +186,15 @@ exports.delete = async (req, res) => {
       message: "Unidade removida com sucesso",
     });
   } catch (error) {
+    console.error("Erro ao remover unidade de medida:", error);
+
+    // Proteção de Integridade Referencial (Chave Estrangeira)
+    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
+      return res.status(400).json({ 
+        erro: "Não é possível excluir esta unidade pois existem produtos vinculados a ela." 
+      });
+    }
+   
     res.status(500).json({ erro: "Erro ao remover unidade de medida" });
   }
 };

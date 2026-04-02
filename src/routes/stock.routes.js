@@ -3,8 +3,9 @@ const { calculateStock, getAllStock } = require("../controllers/stock.controller
 const authenticateToken = require("../middlewares/authenticateToken");
 
 const router = express.Router();
+router.use(authenticateToken);
 
-router.get("/:id", authenticateToken, calculateStock);
-router.use("/", authenticateToken, getAllStock);
+router.get("/", getAllStock);
+router.get("/:id", calculateStock);
 
 module.exports = router;

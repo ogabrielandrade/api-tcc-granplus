@@ -1,6 +1,13 @@
 const pool = require("../config/database");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { passwordWithHash, bcryptCompare } = require("../services/bcrypt");
+
+const normalizeAccessLevel = (level) => {
+  const value = String(level || "").trim().toLowerCase();
+  if (value === "admin") return "admin";
+  if (value === "user" || value === "usuario" || value === "operador" || value === "operator") return "user";
+  return null;
+};
 
 // listar todos os usuarios
 exports.getAllUsers = async (req, res) => {
@@ -11,8 +18,7 @@ exports.getAllUsers = async (req, res) => {
         user_nome,
         user_nivel_acesso,
         user_ativo
-      FROM usuarios
-      WHERE user_ativo = 1`,
+        FROM usuarios`
     );
 
     return res.status(200).json({
@@ -61,11 +67,18 @@ exports.getUserById = async (req, res) => {
 // criar novo usuario
 exports.createUser = async (req, res) => {
   const { user_nome, user_senha, user_nivel_acesso } = req.body;
+  const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
 
   // 1. Validação de Entrada: Garante que todos os dados obrigatórios foram enviados
   if (!user_nome || !user_senha || !user_nivel_acesso) {
     return res.status(400).json({
       erro: "Nome, senha e nível de acesso são obrigatórios",
+    });
+  }
+
+  if (!nivelAcessoNormalizado) {
+    return res.status(400).json({
+      erro: "Nível de acesso inválido. Use 'admin' ou 'usuario'",
     });
   }
 
@@ -81,14 +94,13 @@ exports.createUser = async (req, res) => {
     }
 
     // 3. Criptografar senha (Hash)
-    const senhaHash = await passwordWithHash(user_senha);
-    // ***const senhaHash = await bcrypt.hash(user_senha, 10);// o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
+    const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // 4. Inserir no banco
     const [result] = await pool.query(
       `INSERT INTO usuarios (user_nome, user_senha, user_nivel_acesso)
        VALUES (?, ?, ?)`,
-      [user_nome, senhaHash, user_nivel_acesso],
+      [user_nome, senhaHash, nivelAcessoNormalizado],
     );
 
     // 5. Resposta de Sucesso
@@ -97,7 +109,7 @@ exports.createUser = async (req, res) => {
       usuario: {
         user_id: result.insertId,
         user_nome,
-        user_nivel_acesso,
+        user_nivel_acesso: nivelAcessoNormalizado,
       },
     });
   } catch (error) {
@@ -111,12 +123,31 @@ exports.createUser = async (req, res) => {
 // atualizar usuário
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
-  const { user_nome, user_nivel_acesso, user_ativo } = req.body;
+  const { user_nome, user_nivel_acesso, user_ativo, user_senha } = req.body;
+
+  const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
+  // const ativoNormalizado = Number(user_ativo);
+
+  // Tratamento seguro: garante que não vai dar 'NaN' se o campo vier vazio
+  const ativoNormalizado = user_ativo !== undefined && user_ativo !== null ? Number(user_ativo) : null;
 
   // validação básica
-  if (!user_nome || !user_nivel_acesso || user_ativo === undefined) {
+  // if (!user_nome || !user_nivel_acesso || user_ativo === undefined)
+  if (!user_nome || !user_nivel_acesso || ativoNormalizado === null) {
     return res.status(400).json({
       erro: "Nome, nível de acesso e status são obrigatórios",
+    });
+  }
+
+  if (!nivelAcessoNormalizado) {
+    return res.status(400).json({
+      erro: "Nível de acesso inválido. Use 'admin' ou 'usuario'",
+    });
+  }
+
+  if (![0, 1].includes(ativoNormalizado)) {
+    return res.status(400).json({
+      erro: "Status inválido. Use 0 (inativo) ou 1 (ativo)",
     });
   }
 
@@ -147,18 +178,30 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    // verificar se quem está fazendo a requisição é admin
-    const isAdmin = req.user.user_nivel_acesso === "admin";
+    // verificar se quem está fazendo a requisição é admin (com '?' de proteção)
+    //const isAdmin = req.user.user_nivel_acesso === "admin";
+    const isAdmin = req.user?.user_nivel_acesso === "admin" ? 1 : 0;
 
     // atualizar usuário
-    await pool.query(
-      `UPDATE usuarios
-       SET user_nome = ?,
-           user_nivel_acesso = IF(?, ?, user_nivel_acesso),
-           user_ativo = ?
-       WHERE user_id = ?`,
-      [user_nome, isAdmin, user_nivel_acesso, user_ativo, id],
-    );
+    let updateQuery = `UPDATE usuarios
+         SET user_nome = ?,
+             user_nivel_acesso = IF(?, ?, user_nivel_acesso),
+             user_ativo = ?`;
+
+    const params = [user_nome, isAdmin, nivelAcessoNormalizado, ativoNormalizado];
+    
+    // Se a senha foi preenchida, adiciona no UPDATE
+    if (user_senha && user_senha.trim() !== "") {
+      const hash = await bcrypt.hash(user_senha, 10); //10 é o custo do hash (quanto maior, mais seguro porém é mais lento)
+      updateQuery += `, user_senha = ?`;
+      params.push(hash);
+    }
+
+    // Finaliza a query
+    updateQuery += ` WHERE user_id = ?`;
+    params.push(id);
+
+    await pool.query(updateQuery, params);
 
     return res.status(200).json({
       mensagem: "Usuário atualizado com sucesso",
@@ -169,6 +212,7 @@ exports.updateUser = async (req, res) => {
 
     return res.status(500).json({
       erro: "Erro ao atualizar usuário",
+      detalhe: error.message,
     });
   }
 };
@@ -254,14 +298,26 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // gerar token
+
+    // 1. Busca a chave do .env / token
+    const jwtSecret = process.env.JWT_SECRET;
+
+    // 2. Trava de segurança: impede o login se a chave não existir no ambiente
+    if (!jwtSecret) {
+      console.error("ERRO CRÍTICO: Variável JWT_SECRET não configurada no .env!");
+      return res.status(500).json({
+        erro: "Erro interno de configuração do servidor",
+      });
+    }
+
+    // 3. Gerar token seguro
     const token = jwt.sign(
       {
         user_id: user.user_id,
         user_nome: user.user_nome,
         user_nivel_acesso: user.user_nivel_acesso,
       },
-      process.env.JWT_SECRET || "granplus_fallback_secret",
+      jwtSecret,
       { expiresIn: "12h" },
     );
 
@@ -280,5 +336,41 @@ exports.loginUser = async (req, res) => {
     return res.status(500).json({
       erro: "Erro interno no servidor",
     });
+  }
+};
+// editar senha do usuário
+exports.updatePassword = async (req, res) => {
+  const { id } = req.params;
+  const { senhaAtual, novaSenha } = req.body;
+
+  if (!senhaAtual || !novaSenha) {
+    return res
+      .status(400)
+      .json({ erro: "Senha atual e nova senha são obrigatórias" });
+  }
+
+  try {
+    const [usuarios] = await pool.query(
+      "SELECT user_senha FROM usuarios WHERE user_id = ?",
+      [id],
+    );
+    if (usuarios.length === 0)
+      return res.status(404).json({ erro: "Usuário não encontrado" });
+
+    const user = usuarios[0];
+    const senhaValida = await bcrypt.compare(senhaAtual, user.user_senha);
+    if (!senhaValida)
+      return res.status(400).json({ erro: "Senha atual incorreta" });
+
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    await pool.query("UPDATE usuarios SET user_senha = ? WHERE user_id = ?", [
+      senhaHash,
+      id,
+    ]);
+
+    return res.status(200).json({ mensagem: "Senha atualizada com sucesso" });
+  } catch (error) {
+    console.error("Erro ao atualizar senha:", error);
+    return res.status(500).json({ erro: "Erro interno ao atualizar senha" });
   }
 };
