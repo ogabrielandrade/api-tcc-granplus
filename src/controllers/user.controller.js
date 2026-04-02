@@ -287,7 +287,8 @@ exports.loginUser = async (req, res) => {
     }
 
     // verificar senha
-    const senhaValida = await bcrypt.compare(user_senha, user.user_senha);
+    const senhaValida = await bcryptCompare(user_senha, user.user_senha);
+    // *** const senhaValida = await bcrypt.compare(user_senha, user.user_senha);
 
     console.log("3. Senha bateu com o Hash?:", senhaValida);
 
