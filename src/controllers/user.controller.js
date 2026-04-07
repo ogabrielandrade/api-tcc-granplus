@@ -1,5 +1,6 @@
 const pool = require("../config/database");
-const bcrypt = require("bcrypt");
+// const bcrypt = require("bcrypt");
+const { bcryptCompare, passwordWithHash } = require('../services/bcrypt');
 const jwt = require("jsonwebtoken");
 
 const normalizeAccessLevel = (level) => {
@@ -94,7 +95,8 @@ exports.createUser = async (req, res) => {
     }
 
     // 3. Criptografar senha (Hash)
-    const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
+    const senhaHash = await passwordWithHash(user_senha);
+    // const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // 4. Inserir no banco
     const [result] = await pool.query(
