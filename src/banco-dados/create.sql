@@ -7,7 +7,7 @@ USE cbd_tcc_des_125_estoque;
 CREATE TABLE usuarios (
     user_id           INT AUTO_INCREMENT PRIMARY KEY,
     user_nome         VARCHAR(50)   NOT NULL,
-    user_senha        VARCHAR(20)   NOT NULL,
+    user_senha        VARCHAR(100)   NOT NULL,
     user_nivel_acesso ENUM('admin','user') NOT NULL,
     user_ativo        TINYINT(1)    NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
@@ -142,6 +142,7 @@ CREATE TABLE entrada_produtos (
     pdt_id        INT NOT NULL,
     ent_prod_qtde INT NOT NULL,
     ent_prod_lote INT,
+    pdt_validade  DATE,
     PRIMARY KEY (ent_id, pdt_id),
     CONSTRAINT fk_entprod_entrada
         FOREIGN KEY (ent_id)

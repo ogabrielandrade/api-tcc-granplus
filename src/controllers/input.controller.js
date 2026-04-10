@@ -43,6 +43,16 @@ const registerInput = async (req, res) => {
           erro: `O campo lote do produto na posição ${index} deve ser numérico (schema atual: INT)`,
         });
       }
+
+      // Validação de data de validade
+      if (product.pdt_validade !== undefined && product.pdt_validade !== null) {
+        const dataValidade = new Date(product.pdt_validade);
+        if (isNaN(dataValidade.getTime())) {
+          return res.status(400).json({
+            erro: `A data de validade do produto na posição ${index} deve estar em formato válido (YYYY-MM-DD)`,
+          });
+        }
+      }
     }
 
     connection = await pool.getConnection();
@@ -67,13 +77,14 @@ const registerInput = async (req, res) => {
     for (const product of produtos) {
       await connection.query(
         `INSERT INTO entrada_produtos
-        (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote)
-        VALUES (?, ?, ?, ?)`,
+        (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote, pdt_validade)
+        VALUES (?, ?, ?, ?, ?)`,
         [
           ent_id,
           product.pdt_id,
           product.quantidade,
           product.lote === undefined ? null : Number(product.lote),
+          product.pdt_validade === undefined ? null : product.pdt_validade,
         ],
       );
       // Ao rodar o INSERT acima, a Trigger do MySQL
@@ -86,7 +97,12 @@ const registerInput = async (req, res) => {
     await connection.commit();
 
     // 4. AGORA SIM: Registra a auditoria com segurança de que a entrada realmente existe
-    await registerAudit(req.user.user_id, "Atualização de estoque - entrada", "entrada", ent_id);
+    await registerAudit(
+      req.user.user_id,
+      "Atualização de estoque - entrada",
+      "entrada",
+      ent_id,
+    );
 
     res.status(201).json({
       mensagem: "Entrada registrada com sucesso",
@@ -102,7 +118,7 @@ const registerInput = async (req, res) => {
 
     res.status(500).json({
       erro: "Erro ao registrar entrada",
-      detalhe: error.message
+      detalhe: error.message,
     });
   } finally {
     // Libera a conexão de volta para o Pool
@@ -124,6 +140,7 @@ const getAllInputs = async (req, res) => {
         e.ent_valor_compra,
         f.fncd_nome AS forn_nome,
         ep.ent_prod_qtde AS ent_quantidade,
+        ep.pdt_validade,
         p.pdt_nome
       FROM entrada e
       LEFT JOIN fornecedor f ON e.fncd_id = f.fncd_id
@@ -145,38 +162,54 @@ const updateInput = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const { id } = req.params;
-    const { loc_id, fncd_id, ent_data_compra, ent_valor_compra, produtos } = req.body;
+    const { loc_id, fncd_id, ent_data_compra, ent_valor_compra, produtos } =
+      req.body;
 
     await connection.beginTransaction();
 
     await connection.query(
       `UPDATE entrada SET loc_id = ?, fncd_id = ?, ent_data_compra = ?, ent_valor_compra = ? WHERE ent_id = ?`,
-       [loc_id, fncd_id, ent_data_compra, ent_valor_compra, id]
+      [loc_id, fncd_id, ent_data_compra, ent_valor_compra, id],
     );
 
-    await connection.query(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [id]);
+    await connection.query(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
+      id,
+    ]);
 
     if (produtos && produtos.length > 0) {
       for (const product of produtos) {
         await connection.query(
-          `INSERT INTO entrada_produtos (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote) VALUES (?, ?, ?, ?)`,
-           [id, product.pdt_id, product.quantidade, product.lote]
+          `INSERT INTO entrada_produtos (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote, pdt_validade) VALUES (?, ?, ?, ?, ?)`,
+          [
+            id,
+            product.pdt_id,
+            product.quantidade,
+            product.lote,
+            product.pdt_validade || null,
+          ],
         );
       }
     }
 
-    
     await connection.commit();
 
-    try { await registerAudit(req.user?.user_id || 1, 'Atualizacao de estoque (edicao) - entrada', 'entrada', id); } catch(e) {
-      console.error('Aviso: Erro não crítico ao salvar auditoria', e);
+    try {
+      await registerAudit(
+        req.user?.user_id || 1,
+        "Atualizacao de estoque (edicao) - entrada",
+        "entrada",
+        id,
+      );
+    } catch (e) {
+      console.error("Aviso: Erro não crítico ao salvar auditoria", e);
     }
-    res.status(200).json({ mensagem: 'Entrada atualizada com sucesso' });
-
+    res.status(200).json({ mensagem: "Entrada atualizada com sucesso" });
   } catch (error) {
     await connection.rollback();
-    console.error('Erro ao atualizar entrada:', error);
-    res.status(500).json({ erro: 'Erro ao atualizar a entrada', detalhe: error.message });
+    console.error("Erro ao atualizar entrada:", error);
+    res
+      .status(500)
+      .json({ erro: "Erro ao atualizar a entrada", detalhe: error.message });
   } finally {
     connection.release();
   }
@@ -190,23 +223,32 @@ const deleteInput = async (req, res) => {
 
     await connection.beginTransaction();
 
-    await connection.query(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [id]);
+    await connection.query(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
+      id,
+    ]);
 
     await connection.query(`DELETE FROM entrada WHERE ent_id = ?`, [id]);
 
-    
     await connection.commit();
 
-    try { await registerAudit(req.user?.user_id || 1, 'Estorno de estoque (exclusao) - entrada', 'entrada', id); } catch(e) {
-      console.error('Aviso: Erro não crítico ao salvar auditoria', e);
+    try {
+      await registerAudit(
+        req.user?.user_id || 1,
+        "Estorno de estoque (exclusao) - entrada",
+        "entrada",
+        id,
+      );
+    } catch (e) {
+      console.error("Aviso: Erro não crítico ao salvar auditoria", e);
     }
-    
-    res.status(200).json({ mensagem: 'Entrada excluida com sucesso.' });
 
+    res.status(200).json({ mensagem: "Entrada excluida com sucesso." });
   } catch (error) {
     await connection.rollback();
-    console.error('Erro ao excluir entrada:', error);
-    res.status(500).json({ erro: 'Erro ao excluir a entrada', detalhe: error.message });
+    console.error("Erro ao excluir entrada:", error);
+    res
+      .status(500)
+      .json({ erro: "Erro ao excluir a entrada", detalhe: error.message });
   } finally {
     connection.release();
   }

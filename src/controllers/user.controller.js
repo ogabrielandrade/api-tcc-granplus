@@ -1,11 +1,20 @@
 const pool = require("../config/database");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { bcryptCompare } = require("../services/bcrypt");
 
 const normalizeAccessLevel = (level) => {
-  const value = String(level || "").trim().toLowerCase();
+  const value = String(level || "")
+    .trim()
+    .toLowerCase();
   if (value === "admin") return "admin";
-  if (value === "user" || value === "usuario" || value === "operador" || value === "operator") return "user";
+  if (
+    value === "user" ||
+    value === "usuario" ||
+    value === "operador" ||
+    value === "operator"
+  )
+    return "user";
   return null;
 };
 
@@ -18,7 +27,7 @@ exports.getAllUsers = async (req, res) => {
         user_nome,
         user_nivel_acesso,
         user_ativo
-        FROM usuarios`
+        FROM usuarios`,
     );
 
     return res.status(200).json({
@@ -129,7 +138,8 @@ exports.updateUser = async (req, res) => {
   // const ativoNormalizado = Number(user_ativo);
 
   // Tratamento seguro: garante que não vai dar 'NaN' se o campo vier vazio
-  const ativoNormalizado = user_ativo !== undefined && user_ativo !== null ? Number(user_ativo) : null;
+  const ativoNormalizado =
+    user_ativo !== undefined && user_ativo !== null ? Number(user_ativo) : null;
 
   // validação básica
   // if (!user_nome || !user_nivel_acesso || user_ativo === undefined)
@@ -188,8 +198,13 @@ exports.updateUser = async (req, res) => {
              user_nivel_acesso = IF(?, ?, user_nivel_acesso),
              user_ativo = ?`;
 
-    const params = [user_nome, isAdmin, nivelAcessoNormalizado, ativoNormalizado];
-    
+    const params = [
+      user_nome,
+      isAdmin,
+      nivelAcessoNormalizado,
+      ativoNormalizado,
+    ];
+
     // Se a senha foi preenchida, adiciona no UPDATE
     if (user_senha && user_senha.trim() !== "") {
       const hash = await bcrypt.hash(user_senha, 10); //10 é o custo do hash (quanto maior, mais seguro porém é mais lento)
@@ -298,13 +313,14 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-
     // 1. Busca a chave do .env / token
     const jwtSecret = process.env.JWT_SECRET;
 
     // 2. Trava de segurança: impede o login se a chave não existir no ambiente
     if (!jwtSecret) {
-      console.error("ERRO CRÍTICO: Variável JWT_SECRET não configurada no .env!");
+      console.error(
+        "ERRO CRÍTICO: Variável JWT_SECRET não configurada no .env!",
+      );
       return res.status(500).json({
         erro: "Erro interno de configuração do servidor",
       });

@@ -1,12 +1,21 @@
 const pool = require("../config/database.js");
-const { registerAudit } = require('../services/audit.services');
+const { registerAudit } = require("../services/audit.services");
 
 const registerExit = async (req, res) => {
   try {
-    const { pdt_id, loc_id, lcl_qtde, lcl_destino, lcl_tipo, lcl_justificativa } = req.body;
+    const {
+      pdt_id,
+      loc_id,
+      lcl_qtde,
+      lcl_destino,
+      lcl_tipo,
+      lcl_justificativa,
+    } = req.body;
 
     if (!pdt_id || !lcl_qtde) {
-      return res.status(400).json({ erro: "Produto e quantidade são obrigatórios" });
+      return res
+        .status(400)
+        .json({ erro: "Produto e quantidade são obrigatórios" });
     }
 
     // 1. Busca o produto e estoque atual consolidado.
@@ -14,7 +23,7 @@ const registerExit = async (req, res) => {
       `SELECT pdt_id, pdt_estoque_atual
        FROM produto
        WHERE pdt_id = ?`,
-      [pdt_id]
+      [pdt_id],
     );
 
     if (produtoRows.length === 0) {
@@ -23,6 +32,47 @@ const registerExit = async (req, res) => {
 
     const estoqueAtual = Number(produtoRows[0].pdt_estoque_atual || 0);
 
+    // 1.5 Validação de validade - busca produtos com validade expirada ou próxima
+    const [validadeRows] = await pool.query(
+      `SELECT pdt_validade, ent_prod_qtde
+       FROM entrada_produtos
+       WHERE pdt_id = ? AND pdt_validade IS NOT NULL
+       ORDER BY pdt_validade ASC`,
+      [pdt_id],
+    );
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const aviso = {
+      tem_expirado: false,
+      proximamente_vencimento: false,
+      data_mais_proxima: null,
+    };
+
+    if (validadeRows.length > 0) {
+      for (const row of validadeRows) {
+        const dataValidade = new Date(row.pdt_validade);
+        dataValidade.setHours(0, 0, 0, 0);
+
+        if (dataValidade < hoje) {
+          aviso.tem_expirado = true;
+        } else if (
+          dataValidade <= new Date(hoje.getTime() + 7 * 24 * 60 * 60 * 1000)
+        ) {
+          // Se vence nos próximos 7 dias
+          aviso.proximamente_vencimento = true;
+        }
+
+        if (
+          !aviso.data_mais_proxima ||
+          dataValidade < new Date(aviso.data_mais_proxima)
+        ) {
+          aviso.data_mais_proxima = row.pdt_validade;
+        }
+      }
+    }
+
     // 2. Busca vínculo do produto na localização escolhida.
     const [produtoLocal] = await pool.query(
       `SELECT lp.lcl_id
@@ -30,7 +80,7 @@ const registerExit = async (req, res) => {
        WHERE lp.pdt_id = ?
          AND (? IS NULL OR lp.loc_id = ?)
        LIMIT 1`,
-       [pdt_id, loc_id || null, loc_id || null]
+      [pdt_id, loc_id || null, loc_id || null],
     );
 
     let lcl_id = null;
@@ -44,7 +94,7 @@ const registerExit = async (req, res) => {
          WHERE (? IS NULL OR loc_id = ?)
          ORDER BY loc_id
          LIMIT 1`,
-        [loc_id || null, loc_id || null]
+        [loc_id || null, loc_id || null],
       );
 
       if (locRows.length === 0) {
@@ -56,7 +106,7 @@ const registerExit = async (req, res) => {
       const [novoVinculo] = await pool.query(
         `INSERT INTO localizacao_produtos (lcl_prod_estoque, pdt_id, loc_id)
          VALUES (?, ?, ?)`,
-        [estoqueAtual, pdt_id, locRows[0].loc_id]
+        [estoqueAtual, pdt_id, locRows[0].loc_id],
       );
 
       lcl_id = novoVinculo.insertId;
@@ -66,7 +116,7 @@ const registerExit = async (req, res) => {
     if (Number(lcl_qtde) > estoqueAtual) {
       return res.status(400).json({
         erro: "Estoque insuficiente",
-        estoque_atual: estoqueAtual
+        estoque_atual: estoqueAtual,
       });
     }
 
@@ -83,22 +133,22 @@ const registerExit = async (req, res) => {
         String(lcl_destino || "Não informado"),
         String(lcl_tipo || "Sem motivo informado"),
         String(lcl_justificativa || "Não informada"),
-      ]
+      ],
     );
 
     // 5. Registrar auditoria
     await registerAudit(
-      req.user.user_id, 
-      "Atualização de estoque - saída", 
-      "saida_produtos", 
-      result.insertId
+      req.user.user_id,
+      "Atualização de estoque - saída",
+      "saida_produtos",
+      result.insertId,
     );
 
     res.status(201).json({
       mensagem: "Saída registrada com sucesso",
       sai_id: result.insertId,
+      aviso_validade: aviso,
     });
-    
   } catch (error) {
     console.error("Erro ao registrar saída:", error);
 
@@ -120,11 +170,13 @@ const getAllExits = async (req, res) => {
         s.lcl_tipo AS sai_motivo,
         s.lcl_destino AS sai_destino,
         p.pdt_nome,
-        l.loc_nome
+        l.loc_nome,
+        ep.pdt_validade
       FROM saida_produtos s
       LEFT JOIN localizacao_produtos lp ON s.lcl_id = lp.lcl_id
       LEFT JOIN produto p ON lp.pdt_id = p.pdt_id
       LEFT JOIN localizacao l ON lp.loc_id = l.loc_id
+      LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id
       ORDER BY s.lcl_data_saida DESC
     `);
     res.json(rows);
@@ -136,4 +188,3 @@ const getAllExits = async (req, res) => {
 
 // Exportando os módulos de criação e listagem para a rota
 module.exports = { registerExit, getAllExits };
-

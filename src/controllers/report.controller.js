@@ -65,14 +65,34 @@ const minimumStock = async (req, res) => {
   try {
     const [estoqueMinimo] = await pool.query(`
       SELECT
-        p.pdt_id,
-        p.pdt_nome,
-        p.pdt_estoque_minimo,
-        p.pdt_estoque_atual AS total_estoque
-      FROM produto p
-      WHERE p.pdt_ativo = 1
-        AND p.pdt_estoque_atual < p.pdt_estoque_minimo
-      ORDER BY total_estoque ASC;
+        dados.pdt_id,
+        dados.pdt_nome,
+        dados.pdt_estoque_minimo,
+        dados.total_estoque
+      FROM (
+        SELECT
+          p.pdt_id,
+          p.pdt_nome,
+          p.pdt_estoque_minimo,
+          (
+            COALESCE((
+              SELECT SUM(ep.ent_prod_qtde)
+              FROM entrada_produtos ep
+              WHERE ep.pdt_id = p.pdt_id
+            ), 0)
+            -
+            COALESCE((
+              SELECT SUM(sp.lcl_qtde)
+              FROM saida_produtos sp
+              JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
+              WHERE lp.pdt_id = p.pdt_id
+            ), 0)
+          ) AS total_estoque
+        FROM produto p
+        WHERE p.pdt_ativo = 1
+      ) AS dados
+      WHERE dados.total_estoque < dados.pdt_estoque_minimo
+      ORDER BY dados.total_estoque ASC;
     `);
 
     res.json(estoqueMinimo);
