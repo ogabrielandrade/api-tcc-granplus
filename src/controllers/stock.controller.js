@@ -5,7 +5,7 @@ const calculateStock = async (req, res) => {
     const { id } = req.params;
 
     // Buscamos apenas o produto e o saldo que a Trigger já calculou
-    const [produto] = await pool.query(
+    const [produto] = await pool.execute(
       `SELECT 
          p.pdt_id AS produto_id,
          p.pdt_nome,
@@ -48,7 +48,7 @@ const getAllStock = async (req, res) => {
   try {
     // Fim dos múltiplos JOINs e SUMs perigosos.
     // Lemos diretamente a coluna que a Trigger mantém atualizada.
-    const [todoEstoque] = await pool.query(`
+    const [todoEstoque] = await pool.execute(`
       SELECT 
           p.pdt_id,
           p.pdt_nome,

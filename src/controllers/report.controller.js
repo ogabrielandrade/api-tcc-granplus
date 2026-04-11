@@ -4,7 +4,7 @@ const pool = require("../config/database");
 const getMoreMovedProducts = async (req, res) => {
   try {
     // CORREÇÃO: Usando Sub-consultas para evitar a "multiplicação" do JOIN
-    const [relatorio] = await pool.query(`
+    const [relatorio] = await pool.execute(`
       SELECT 
           p.pdt_id,
           p.pdt_nome,
@@ -63,7 +63,7 @@ const getMoreMovedProducts = async (req, res) => {
 
 const minimumStock = async (req, res) => {
   try {
-    const [estoqueMinimo] = await pool.query(`
+    const [estoqueMinimo] = await pool.execute(`
       SELECT
         dados.pdt_id,
         dados.pdt_nome,
@@ -119,7 +119,7 @@ const getAuditReports = async (req, res) => {
   }
 
   try {
-    const [reports] = await pool.query(`
+    const [reports] = await pool.execute(`
       SELECT 
         a.aud_id,
         a.aud_data,

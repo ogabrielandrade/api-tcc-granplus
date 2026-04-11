@@ -19,7 +19,7 @@ const registerExit = async (req, res) => {
     }
 
     // 1. Busca o produto e estoque atual consolidado.
-    const [produtoRows] = await pool.query(
+    const [produtoRows] = await pool.execute(
       `SELECT pdt_id, pdt_estoque_atual
        FROM produto
        WHERE pdt_id = ?`,
@@ -74,7 +74,7 @@ const registerExit = async (req, res) => {
     }
 
     // 2. Busca vínculo do produto na localização escolhida.
-    const [produtoLocal] = await pool.query(
+    const [produtoLocal] = await pool.execute(
       `SELECT lp.lcl_id
        FROM localizacao_produtos lp
        WHERE lp.pdt_id = ?
@@ -88,7 +88,7 @@ const registerExit = async (req, res) => {
     if (produtoLocal.length > 0) {
       lcl_id = produtoLocal[0].lcl_id;
     } else {
-      const [locRows] = await pool.query(
+      const [locRows] = await pool.execute(
         `SELECT loc_id
          FROM localizacao
          WHERE (? IS NULL OR loc_id = ?)
@@ -103,7 +103,7 @@ const registerExit = async (req, res) => {
         });
       }
 
-      const [novoVinculo] = await pool.query(
+      const [novoVinculo] = await pool.execute(
         `INSERT INTO localizacao_produtos (lcl_prod_estoque, pdt_id, loc_id)
          VALUES (?, ?, ?)`,
         [estoqueAtual, pdt_id, locRows[0].loc_id],
@@ -123,7 +123,7 @@ const registerExit = async (req, res) => {
     // 4. Registrar a saída
     // ⚡ AQUI A MÁGICA ACONTECE: O INSERT dispara a Trigger no banco,
     // que vai lá na tabela 'produto' e subtrai a quantidade do 'pdt_estoque_atual'.
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `INSERT INTO saida_produtos
       (lcl_id, lcl_qtde, lcl_data_saida, lcl_destino, lcl_tipo, lcl_justificativa)
       VALUES (?, ?, NOW(), ?, ?, ?)`,
@@ -162,7 +162,7 @@ const registerExit = async (req, res) => {
 // Função para listar todas as saídas de produtos (consulta estática sem parâmetros externos, sendo imune a SQL Injection)
 const getAllExits = async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.execute(`
       SELECT 
         s.sai_id AS sai_id,
         s.lcl_data_saida AS sai_data,

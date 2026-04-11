@@ -60,7 +60,7 @@ const registerInput = async (req, res) => {
     await connection.beginTransaction();
 
     // 1. Inserir a "Capa" da Entrada (Nota Fiscal/Registro Geral)
-    const [inputResult] = await connection.query(
+    const [inputResult] = await connection.execute(
       `INSERT INTO entrada 
       (loc_id, fncd_id, ent_data_compra, ent_valor_compra, ent_data)
       VALUES (?, ?, ?, ?, NOW())`,
@@ -74,7 +74,7 @@ const registerInput = async (req, res) => {
 
     // 2. Inserir os produtos da entrada
     for (const product of produtos) {
-      await connection.query(
+      await connection.execute(
         `INSERT INTO entrada_produtos
         (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote, pdt_validade)
         VALUES (?, ?, ?, ?, ?)`,
@@ -131,7 +131,7 @@ const registerInput = async (req, res) => {
 const getAllInputs = async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const [rows] = await connection.query(`
+    const [rows] = await connection.execute(`
       SELECT 
         e.ent_id,
         e.ent_data,
@@ -166,18 +166,18 @@ const updateInput = async (req, res) => {
 
     await connection.beginTransaction();
 
-    await connection.query(
+    await connection.execute(
       `UPDATE entrada SET loc_id = ?, fncd_id = ?, ent_data_compra = ?, ent_valor_compra = ? WHERE ent_id = ?`,
       [loc_id, fncd_id, ent_data_compra, ent_valor_compra, id],
     );
 
-    await connection.query(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
+    await connection.execute(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
       id,
     ]);
 
     if (produtos && produtos.length > 0) {
       for (const product of produtos) {
-        await connection.query(
+        await connection.execute(
           `INSERT INTO entrada_produtos (ent_id, pdt_id, ent_prod_qtde, ent_prod_lote, pdt_validade) VALUES (?, ?, ?, ?, ?)`,
           [
             id,
@@ -222,11 +222,11 @@ const deleteInput = async (req, res) => {
 
     await connection.beginTransaction();
 
-    await connection.query(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
+    await connection.execute(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
       id,
     ]);
 
-    await connection.query(`DELETE FROM entrada WHERE ent_id = ?`, [id]);
+    await connection.execute(`DELETE FROM entrada WHERE ent_id = ?`, [id]);
 
     await connection.commit();
 
@@ -253,5 +253,5 @@ const deleteInput = async (req, res) => {
   }
 };
 
-// Exportando funÃ§Ãµes do controller
+// Exportando funções do controller
 module.exports = { registerInput, getAllInputs, updateInput, deleteInput };

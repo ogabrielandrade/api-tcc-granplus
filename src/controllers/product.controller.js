@@ -45,7 +45,7 @@ const createProduct = async (req, res) => {
     }
 
     // 2. Verifica se o Código já existe (Anti-Duplicação)
-    const [codigoExiste] = await pool.query(
+    const [codigoExiste] = await pool.execute(
       "SELECT pdt_id FROM produto WHERE pdt_codigo = ? LIMIT 1",
       [codigo]
     );
@@ -54,7 +54,7 @@ const createProduct = async (req, res) => {
       return res.status(409).json({ error: "Já existe um produto com este código" });
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `INSERT INTO produto 
        (pdt_nome, pdt_codigo, pdt_descricao, pdt_estoque_minimo, pdt_ativo, cat_id, unid_med_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -107,7 +107,7 @@ const updateProduct = async (req, res) => {
     }
 
     // Anti-Duplicação de Código na Edição
-    const [codigoExiste] = await pool.query(
+    const [codigoExiste] = await pool.execute(
       "SELECT pdt_id FROM produto WHERE pdt_codigo = ? AND pdt_id <> ? LIMIT 1",
       [codigo, id]
     );
@@ -116,7 +116,7 @@ const updateProduct = async (req, res) => {
       return res.status(409).json({ error: "Este código já está em uso por outro produto" });
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `UPDATE produto SET
         pdt_nome = ?,
         pdt_codigo = ?,
@@ -159,7 +159,7 @@ const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`,
       [id]
     );
@@ -186,7 +186,7 @@ const historicalMoviments = async (req, res) => {
     const { id } = req.params;
 
     // Essa query está sensacional. Não mudei nada na lógica dela.
-    const [rows] = await pool.query(
+    const [rows] = await pool.execute(
       `SELECT 
         'entrada' AS tipo,
         ep.ent_prod_qtde AS quantidade,

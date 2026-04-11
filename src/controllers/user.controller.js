@@ -93,7 +93,7 @@ exports.createUser = async (req, res) => {
 
   try {
     // 2. Verificar se o usuário já existe
-    const [existeUsuario] = await pool.query(
+    const [existeUsuario] = await pool.execute(
       `SELECT user_id FROM usuarios WHERE user_nome = ?`,
       [user_nome],
     );
@@ -106,7 +106,7 @@ exports.createUser = async (req, res) => {
     const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // 4. Inserir no banco
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `INSERT INTO usuarios (user_nome, user_senha, user_nivel_acesso)
        VALUES (?, ?, ?)`,
       [user_nome, senhaHash, nivelAcessoNormalizado],
@@ -163,7 +163,7 @@ exports.updateUser = async (req, res) => {
 
   try {
     // verificar se usuário existe
-    const [usuarioExiste] = await pool.query(
+    const [usuarioExiste] = await pool.execute(
       `SELECT user_id FROM usuarios WHERE user_id = ?`,
       [id],
     );
@@ -175,7 +175,7 @@ exports.updateUser = async (req, res) => {
     }
 
     // verificar se nome já está em uso
-    const [nomeExiste] = await pool.query(
+    const [nomeExiste] = await pool.execute(
       `SELECT user_id
        FROM usuarios
        WHERE user_nome = ? AND user_id != ?`,
@@ -237,7 +237,7 @@ exports.deleteUser = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `UPDATE usuarios
        SET user_ativo = 0
        WHERE user_id = ? AND user_ativo = 1`,
@@ -277,7 +277,7 @@ exports.loginUser = async (req, res) => {
     }
 
     // buscar usuário
-    const [usuarios] = await pool.query(
+    const [usuarios] = await pool.execute(
       `SELECT user_id, user_nome, user_senha, user_nivel_acesso, user_ativo
        FROM usuarios
        WHERE user_nome = ?`,
@@ -366,7 +366,7 @@ exports.updatePassword = async (req, res) => {
   }
 
   try {
-    const [usuarios] = await pool.query(
+    const [usuarios] = await pool.execute(
       "SELECT user_senha FROM usuarios WHERE user_id = ?",
       [id],
     );

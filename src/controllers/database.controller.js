@@ -2,7 +2,7 @@ const pool = require("../config/database");
 
 exports.testDataBase = async (req, res) => {
   try {
-    const [produto] = await pool.query(
+    const [produto] = await pool.execute(
       /*   "SELECT * FROM produto WHERE pdt_id = ?",
         [1],*/
       "SELECT 1 as status",

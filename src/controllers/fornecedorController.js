@@ -3,7 +3,7 @@ const pool = require("../config/database");
 // listagem de fornecedores
 exports.getAll = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM fornecedor");
+    const [rows] = await pool.execute("SELECT * FROM fornecedor");
     res.json(rows);
   } catch (error) {
     res.status(500).json({ erro: "Erro ao listar fornecedores" });
@@ -15,7 +15,7 @@ exports.getById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await pool.query(
+    const [rows] = await pool.execute(
       "SELECT * FROM fornecedor WHERE fncd_id = ?",
       [id],
     );
@@ -82,7 +82,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [fornecedorPorDocumento] = await pool.query(
+    const [fornecedorPorDocumento] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_documento = ? LIMIT 1",
       [documento],
     );
@@ -93,7 +93,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `INSERT INTO fornecedor
       (fncd_nome, fncd_documento, fncd_endereco, fncd_tel, fncd_email)
       VALUES (?, ?, ?, ?, ?)`,
@@ -163,7 +163,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [fornecedorExistente] = await pool.query(
+    const [fornecedorExistente] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_id = ? LIMIT 1",
       [id],
     );
@@ -172,7 +172,7 @@ exports.update = async (req, res) => {
       return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
     }
 
-    const [fornecedorPorDocumento] = await pool.query(
+    const [fornecedorPorDocumento] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_documento = ? AND fncd_id <> ? LIMIT 1",
       [documento, id],
     );
@@ -183,7 +183,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `UPDATE fornecedor SET
       fncd_nome = ?,
       fncd_documento = ?,
@@ -206,7 +206,7 @@ exports.delete = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       "DELETE FROM fornecedor WHERE fncd_id = ?",
       [id],
     );

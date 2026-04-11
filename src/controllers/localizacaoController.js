@@ -14,7 +14,7 @@ exports.listarLocalizacoes = async (req, res) => {
 exports.buscarLocalizacao = async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query("SELECT * FROM localizacao WHERE loc_id = ?", [id]);
+    const [result] = await pool.execute("SELECT * FROM localizacao WHERE loc_id = ?", [id]);
 
     // Retorna 404 se não achar a localização
     if (result.length === 0) {
@@ -40,7 +40,7 @@ exports.criarLocalizacao = async (req, res) => {
       return res.status(400).json({ erro: "O nome da localização é obrigatório" });
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       "INSERT INTO localizacao (loc_nome, loc_desc) VALUES (?, ?)",
       //[loc_nome, loc_desc]
       [nome, desc]
@@ -67,7 +67,7 @@ exports.atualizarLocalizacao = async (req, res) => {
       return res.status(400).json({ erro: "O nome da localização é obrigatório" });
     }
 
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       `UPDATE localizacao SET loc_nome = ?, loc_desc = ? WHERE loc_id = ?`,
       //[loc_nome, loc_desc, id]
       [nome, desc, id]
@@ -89,7 +89,7 @@ exports.atualizarLocalizacao = async (req, res) => {
 exports.deletarLocalizacao = async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query("DELETE FROM localizacao WHERE loc_id = ?", [id]);
+    const [result] = await pool.execute("DELETE FROM localizacao WHERE loc_id = ?", [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ erro: "Localização não encontrada" });
     }

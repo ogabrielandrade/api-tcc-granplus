@@ -4,13 +4,13 @@ const getDashboardResume = async (req, res) => {
   const { pdt_id } = req.params;
 
   try {
-    const [totalProdutos] = await pool.query(`
+    const [totalProdutos] = await pool.execute(`
                 SELECT COUNT(*) AS total_produtos
                 FROM produto
                 WHERE pdt_ativo = 1
         `);
 
-    const [estoqueMinimo] = await pool.query(`
+    const [estoqueMinimo] = await pool.execute(`
         SELECT COUNT(*) AS abaixo_minimo
       FROM produto p
       WHERE (
@@ -25,19 +25,19 @@ const getDashboardResume = async (req, res) => {
       ) < p.pdt_estoque_minimo
         `);
 
-    const [entradasHoje] = await pool.query(`
+    const [entradasHoje] = await pool.execute(`
       SELECT COUNT(*) AS entradas_hoje
       FROM entrada
       WHERE DATE(ent_data) = CURDATE()
     `);
 
-    const [saidasHoje] = await pool.query(`
+    const [saidasHoje] = await pool.execute(`
       SELECT COUNT(*) AS saidas_hoje
       FROM saida_produtos
       WHERE DATE(lcl_data_saida) = CURDATE()
     `);
 
-    const [totalMovimentacoes] = await pool.query(`
+    const [totalMovimentacoes] = await pool.execute(`
       select p.pdt_id, 
 	           p.pdt_nome,
        (
@@ -71,7 +71,7 @@ const resumeForProduct = async (req, res) => {
   const { pdt_id } = req.params;
 
   try {
-    const [estoqueAtualPorProduto] = await pool.query(
+    const [estoqueAtualPorProduto] = await pool.execute(
       `
         SELECT pdt_id, pdt_nome, pdt_estoque_minimo, pdt_estoque_atual
           FROM produto

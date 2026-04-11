@@ -3,7 +3,7 @@ const pool = require("../config/database");
 // LISTAR TODAS AS UNIDADES
 exports.getAll = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM unidade_medida");
+    const [rows] = await pool.execute("SELECT * FROM unidade_medida");
     res.json(rows);
   } catch (error) {
     console.error("Erro ao listar unidades de medida:", error);
@@ -16,7 +16,7 @@ exports.getById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await pool.query(
+    const [rows] = await pool.execute(
       "SELECT * FROM unidade_medida WHERE unid_med_id = ?",
       [id],
     );
@@ -67,7 +67,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [unidadeExistente] = await pool.query(
+    const [unidadeExistente] = await pool.execute(
       "SELECT unid_med_id FROM unidade_medida WHERE LOWER(TRIM(unid_med_sigla)) = LOWER(TRIM(?)) LIMIT 1",
       [sigla],
     );
@@ -78,7 +78,7 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await pool.query(sql, [sigla]);
+    const [result] = await pool.execute(sql, [sigla]);
 
     res.status(201).json({
       message: "Unidade criada com sucesso",
@@ -125,7 +125,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [unidadeExistente] = await pool.query(
+    const [unidadeExistente] = await pool.execute(
       "SELECT unid_med_id FROM unidade_medida WHERE unid_med_id = ? LIMIT 1",
       [id],
     );
@@ -136,7 +136,7 @@ exports.update = async (req, res) => {
       });
     }
 
-    const [unidadeDuplicada] = await pool.query(
+    const [unidadeDuplicada] = await pool.execute(
       "SELECT unid_med_id FROM unidade_medida WHERE LOWER(TRIM(unid_med_sigla)) = LOWER(TRIM(?)) AND unid_med_id <> ? LIMIT 1",
       [sigla, id],
     );
@@ -171,7 +171,7 @@ exports.delete = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await pool.query(
+    const [result] = await pool.execute(
       "DELETE FROM unidade_medida WHERE unid_med_id = ?",
       [id],
     );
