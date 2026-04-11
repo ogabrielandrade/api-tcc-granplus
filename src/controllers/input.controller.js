@@ -1,9 +1,6 @@
 const pool = require("../config/database");
 const { registerAudit } = require("../services/audit.services");
-
-const {
-  updateColunaEstoqueAtual,
-} = require("../services/updateColunaEstoqueAtual");
+const {updateColunaEstoqueAtual,} = require("../services/updateColunaEstoqueAtual");
 
 // REGISTRAR PRODUTO (ENTRADA)
 const registerInput = async (req, res) => {
@@ -24,16 +21,18 @@ const registerInput = async (req, res) => {
       });
     }
 
-    if (!Array.isArray(produtos) || produtos.length === 0) {
+    //validação de array e dados
+    if (!Array.isArray(produtos) || produtos.length === 0) { // verifica se 'produtos' realmente é um array e se o comprimento é igual a 0
       return res.status(400).json({
-        erro: "produtos deve ser um array com ao menos um item",
+        erro: "produtos deve conter ao menos um item"
       });
     }
 
-    for (const [index, product] of produtos.entries()) {
-      if (!product?.pdt_id || !product?.quantidade) {
+    // validação de integridade (verifica se os dados de cada item estão completos)
+    for (const [index, product] of produtos.entries()) { // cria duas constantes, index e product, que recebrão os valores do método .entries(); sabendo que o método .entries() retorna o item e a posição de um array; por saber que o metodo devolve esses resultados, usamos desestruturação e atribuímos os valores do método nas duas constantes declaradas
+      if (!product?.pdt_id || !product?.quantidade) { //(?. = optional chaining) se product.pdt_id e product.quantidade forem null, imprime undefined em vez de dar erro.
         return res.status(400).json({
-          erro: `Produto na posição ${index} sem pdt_id ou quantidade`,
+          erro: `Produto na posição ${index} sem ID ou quantidade`,
         });
       }
 
@@ -55,7 +54,7 @@ const registerInput = async (req, res) => {
       }
     }
 
-    connection = await pool.getConnection();
+    connection = await pool.getConnection(); // pega uma conexão da pool
 
     // Começo da transação: garante que ou salva tudo, ou não salva nada
     await connection.beginTransaction();
