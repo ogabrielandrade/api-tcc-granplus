@@ -23,7 +23,7 @@ const calculateStock = async (req, res) => {
              WHERE lp2.pdt_id = p.pdt_id
            ), 0)
          ) AS estoque_atual,
-         ep.pdt_validade,
+         DATE_FORMAT(ep.pdt_validade, '%Y-%m-%d') AS pdt_validade,
          ep.ent_prod_lote as lote
        FROM produto p
        LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id
@@ -69,7 +69,7 @@ const getAllStock = async (req, res) => {
               WHERE lp2.pdt_id = p.pdt_id
             ), 0)
           ) AS estoque_atual,
-          ep.pdt_validade,
+          DATE_FORMAT(ep.pdt_validade, '%Y-%m-%d') AS pdt_validade,
           ep.ent_prod_lote as lote
       FROM produto p
       LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id
