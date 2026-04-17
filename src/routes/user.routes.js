@@ -10,6 +10,11 @@ const requireOwnerOrAdmin = require("../middlewares/owner");
 // rota pública
 router.post("/login", userController.loginUser);
 
+// O fluxo de redefinição com PIN de 6 dígitos
+router.post("/verificar-usuario", userController.verifyUserForReset); 
+router.post("/enviar-pin", userController.sendResetPin);             
+router.post("/redefinir-senha", userController.resetPasswordWithPin);
+
 // aplicar autenticação nas rotas abaixo
 router.use(authenticateToken);
 
