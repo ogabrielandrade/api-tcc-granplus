@@ -22,7 +22,7 @@ const updateColunaEstoqueAtual = async (db = pool) => {
     return rows;
   } catch (error) {
     console.error(error);
-    console.log("Falha ao atualizar a coluna de pdt_estoque_atual");
+    console.log("Falha ao atualizar a coluna de estoque");
     throw error;
   }
 };

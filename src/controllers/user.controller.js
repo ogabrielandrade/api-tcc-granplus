@@ -3,6 +3,19 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { bcryptCompare } = require("../services/bcrypt");
 
+// --- ADICIONE ESTAS DUAS LINHAS ---
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+// --- ADICIONE A CONFIGURAÇÃO DO GMAIL ---
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER, // Coloque o Gmail do seu projeto
+    pass: process.env.GMAIL_PASS // A senha de 16 letras gerada no Google
+  }
+});
+
 const normalizeAccessLevel = (level) => {
   const value = String(level || "")
     .trim()
@@ -388,5 +401,128 @@ exports.updatePassword = async (req, res) => {
   } catch (error) {
     console.error("Erro ao atualizar senha:", error);
     return res.status(500).json({ erro: "Erro interno ao atualizar senha" });
+  }
+};
+
+// =========================================================
+// FUNÇÕES DE RECUPERAÇÃO DE SENHA (PIN DE 6 DÍGITOS)
+// =========================================================
+
+// Função para esconder parte do e-mail (ex: iago@teste.com -> i***@teste.com)
+const maskEmail = (email) => {
+  if (!email) return null;
+  const [nome, dominio] = email.split('@');
+  if (nome.length <= 3) return `***@${dominio}`;
+  const finalDoNome = nome.slice(-4);
+  return `****${finalDoNome}@${dominio}`;
+};
+
+// 1. Verifica se usuário existe e devolve o email escondido
+exports.verifyUserForReset = async (req, res) => {
+  const { user_nome } = req.body;
+
+  if (!user_nome) return res.status(400).json({ erro: "Nome de usuário é obrigatório" });
+
+  try {
+    const [usuarios] = await pool.execute(
+      `SELECT user_email FROM usuarios WHERE user_nome = ? AND user_ativo = 1`,
+      [user_nome]
+    );
+
+    if (usuarios.length === 0 || !usuarios[0].user_email) {
+      return res.status(404).json({ erro: "Usuário não encontrado ou sem e-mail cadastrado." });
+    }
+
+    const emailMascarado = maskEmail(usuarios[0].user_email);
+
+    return res.status(200).json({ 
+      mensagem: "Usuário encontrado",
+      emailMascarado: emailMascarado 
+    });
+  } catch (error) {
+    console.error("Erro no verifyUserForReset:", error);
+    return res.status(500).json({ erro: "Erro ao verificar usuário" });
+  }
+};
+
+// 2. Gera o código de 6 dígitos e envia por e-mail
+exports.sendResetPin = async (req, res) => {
+  const { user_nome } = req.body;
+
+  try {
+    const [usuarios] = await pool.execute(
+      `SELECT user_id, user_nome, user_email FROM usuarios WHERE user_nome = ?`,
+      [user_nome]
+    );
+
+    if (usuarios.length === 0) return res.status(404).json({ erro: "Usuário não encontrado" });
+
+    const user = usuarios[0];
+    const pin = Math.floor(100000 + Math.random() * 900000).toString(); // PIN 6 dígitos
+    
+    const expireTime = new Date();
+    expireTime.setMinutes(expireTime.getMinutes() + 15); // Vale por 15 min
+
+    await pool.execute(
+      `UPDATE usuarios SET reset_token = ?, reset_expires = ? WHERE user_id = ?`,
+      [pin, expireTime, user.user_id]
+    );
+
+    await transporter.sendMail({
+      from: '"Sistema de Estoque" <' + process.env.GMAIL_USER + '>', // O mesmo Gmail
+      to: user.user_email,
+      subject: "Seu código de recuperação de senha: " + pin,
+      html: `
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+          <h2>Olá, ${user.user_nome}!</h2>
+          <p>Você solicitou a redefinição da sua senha. Use o código abaixo no sistema:</p>
+          <h1 style="background: #f4f4f4; padding: 15px; letter-spacing: 5px; color: #333; border-radius: 8px;">
+            ${pin}
+          </h1>
+          <p style="color: #888; font-size: 12px;">Este código é válido por 15 minutos.</p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({ mensagem: "Código enviado com sucesso para o e-mail." });
+  } catch (error) {
+    console.error("Erro no sendResetPin:", error);
+    return res.status(500).json({ erro: "Erro ao enviar o código" });
+  }
+};
+
+// 3. Recebe o PIN e a Senha Nova, e salva no banco
+exports.resetPasswordWithPin = async (req, res) => {
+  const { user_nome, pin, novaSenha } = req.body;
+
+  if (!user_nome || !pin || !novaSenha) {
+    return res.status(400).json({ erro: "Usuário, código PIN e nova senha são obrigatórios" });
+  }
+
+  try {
+    const [usuarios] = await pool.execute(
+      `SELECT user_id FROM usuarios 
+       WHERE user_nome = ? AND reset_token = ? AND reset_expires > NOW()`,
+      [user_nome, pin]
+    );
+
+    if (usuarios.length === 0) {
+      return res.status(400).json({ erro: "Código inválido ou expirado." });
+    }
+
+    const userId = usuarios[0].user_id;
+    const senhaHash = await bcrypt.hash(novaSenha, 10);
+
+    await pool.execute(
+      `UPDATE usuarios 
+       SET user_senha = ?, reset_token = NULL, reset_expires = NULL 
+       WHERE user_id = ?`,
+      [senhaHash, userId]
+    );
+
+    return res.status(200).json({ mensagem: "Senha redefinida com sucesso! Pode fazer login." });
+  } catch (error) {
+    console.error("Erro no resetPasswordWithPin:", error);
+    return res.status(500).json({ erro: "Erro ao redefinir a senha" });
   }
 };

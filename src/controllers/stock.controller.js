@@ -4,11 +4,14 @@ const calculateStock = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Buscamos apenas o produto e o saldo que a Trigger já calculou
+    // Retorna uma unica linha do produto com saldo consolidado.
     const [produto] = await pool.execute(
       `SELECT 
          p.pdt_id AS produto_id,
          p.pdt_nome,
+         p.pdt_estoque_minimo,
+         p.pdt_descricao,
+         p.pdt_codigo,
          (
            COALESCE((
              SELECT SUM(ep2.ent_prod_qtde)
@@ -22,13 +25,9 @@ const calculateStock = async (req, res) => {
              JOIN localizacao_produtos lp2 ON lp2.lcl_id = sp2.lcl_id
              WHERE lp2.pdt_id = p.pdt_id
            ), 0)
-         ) AS estoque_atual,
-         ep.pdt_validade,
-         ep.ent_prod_lote as lote
+         ) AS estoque_atual
        FROM produto p
-       LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id
-       WHERE p.pdt_id = ? AND p.pdt_ativo = 1
-       ORDER BY ep.pdt_validade ASC`,
+       WHERE p.pdt_id = ? AND p.pdt_ativo = 1`,
       [id],
     );
 
@@ -46,8 +45,7 @@ const calculateStock = async (req, res) => {
 
 const getAllStock = async (req, res) => {
   try {
-    // Fim dos múltiplos JOINs e SUMs perigosos.
-    // Lemos diretamente a coluna que a Trigger mantém atualizada.
+    // Uma linha por produto ativo com estoque consolidado.
     const [todoEstoque] = await pool.execute(`
       SELECT 
           p.pdt_id,
@@ -68,13 +66,10 @@ const getAllStock = async (req, res) => {
               JOIN localizacao_produtos lp2 ON lp2.lcl_id = sp2.lcl_id
               WHERE lp2.pdt_id = p.pdt_id
             ), 0)
-          ) AS estoque_atual,
-          ep.pdt_validade,
-          ep.ent_prod_lote as lote
+          ) AS estoque_atual
       FROM produto p
-      LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id
       WHERE p.pdt_ativo = 1
-      ORDER BY p.pdt_nome, ep.pdt_validade ASC
+      ORDER BY p.pdt_nome ASC
     `);
 
     res.json(todoEstoque);
