@@ -25,6 +25,7 @@ const calculateStock = async (req, res) => {
              JOIN localizacao_produtos lp2 ON lp2.lcl_id = sp2.lcl_id
              WHERE lp2.pdt_id = p.pdt_id
            ), 0)
+
          ) AS estoque_atual
        FROM produto p
        WHERE p.pdt_id = ? AND p.pdt_ativo = 1`,

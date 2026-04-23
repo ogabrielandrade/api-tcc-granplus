@@ -1,4 +1,13 @@
+-- adcionar email e campos para reset de senha
+ALTER TABLE usuarios 
+ADD COLUMN user_email VARCHAR(100) UNIQUE AFTER user_nome,
+ADD COLUMN reset_token VARCHAR(255) NULL,
+ADD COLUMN reset_expires DATETIME NULL;
+
+UPDATE usuarios SET user_email = 'seu_email_real@gmail.com' WHERE user_id = 1;
+
 -- triggers para o banco de dados 
+
 
 ALTER TABLE produto 
 ADD COLUMN pdt_estoque_atual INT NOT NULL DEFAULT 0;
