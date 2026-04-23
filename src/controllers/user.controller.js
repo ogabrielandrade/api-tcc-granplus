@@ -1,18 +1,15 @@
 const pool = require("../config/database");
-const bcrypt = require("bcrypt");
+const { bcryptCompare, passwordWithHash } = require('../services/bcrypt'); 
 const jwt = require("jsonwebtoken");
-const { bcryptCompare } = require("../services/bcrypt");
-
-// --- ADICIONE ESTAS DUAS LINHAS ---
-const crypto = require("crypto");
+const crypto = require("crypto"); // gera o pin de 6 dígitos do reset de senha
 const nodemailer = require("nodemailer");
 
 // --- ADICIONE A CONFIGURAÇÃO DO GMAIL ---
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.GMAIL_USER, // Coloque o Gmail do seu projeto
-    pass: process.env.GMAIL_PASS // A senha de 16 letras gerada no Google
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS 
   }
 });
 
@@ -116,7 +113,8 @@ exports.createUser = async (req, res) => {
     }
 
     // 3. Criptografar senha (Hash)
-    const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
+    const senhaHash = await passwordWithHash(user_senha);
+    // const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // 4. Inserir no banco
     const [result] = await pool.execute(
@@ -220,7 +218,7 @@ exports.updateUser = async (req, res) => {
 
     // Se a senha foi preenchida, adiciona no UPDATE
     if (user_senha && user_senha.trim() !== "") {
-      const hash = await bcrypt.hash(user_senha, 10); //10 é o custo do hash (quanto maior, mais seguro porém é mais lento)
+      const hash = await passwordWithHash(user_senha);
       updateQuery += `, user_senha = ?`;
       params.push(hash);
     }
@@ -316,7 +314,6 @@ exports.loginUser = async (req, res) => {
 
     // verificar senha
     const senhaValida = await bcryptCompare(user_senha, user.user_senha);
-    // *** const senhaValida = await bcrypt.compare(user_senha, user.user_senha);
 
     console.log("3. Senha bateu com o Hash?:", senhaValida);
 
@@ -390,8 +387,9 @@ exports.updatePassword = async (req, res) => {
     const senhaValida = await bcrypt.compare(senhaAtual, user.user_senha);
     if (!senhaValida)
       return res.status(400).json({ erro: "Senha atual incorreta" });
-
-    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    
+    // const senhaHash = await bcrypt.hash(novaSenha, 10);
+    const senhaHash = await passwordWithHash(novaSenha);
     await pool.query("UPDATE usuarios SET user_senha = ? WHERE user_id = ?", [
       senhaHash,
       id,
@@ -399,7 +397,7 @@ exports.updatePassword = async (req, res) => {
 
     return res.status(200).json({ mensagem: "Senha atualizada com sucesso" });
   } catch (error) {
-    console.error("Erro ao atualizar senha:", error);
+    console.error("Erro ao atualizar senha:", error);4
     return res.status(500).json({ erro: "Erro interno ao atualizar senha" });
   }
 };
@@ -408,7 +406,6 @@ exports.updatePassword = async (req, res) => {
 // FUNÇÕES DE RECUPERAÇÃO DE SENHA (PIN DE 6 DÍGITOS)
 // =========================================================
 
-// Função para esconder parte do e-mail (ex: iago@teste.com -> i***@teste.com)
 const maskEmail = (email) => {
   if (!email) return null;
   const [nome, dominio] = email.split('@');

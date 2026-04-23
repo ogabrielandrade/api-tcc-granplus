@@ -91,7 +91,7 @@ const registerInput = async (req, res) => {
     }
 
     await updateColunaEstoqueAtual(connection);
-
+    
     // 3. Tudo deu certo? Confirma a transação
     await connection.commit();
 
