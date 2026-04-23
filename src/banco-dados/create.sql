@@ -33,13 +33,27 @@ CREATE TABLE auditoria (
 -- =========================
 -- TABELA: fornecedor
 -- =========================
-CREATE TABLE fornecedor (
+/*CREATE TABLE fornecedor (
     fncd_id         INT AUTO_INCREMENT PRIMARY KEY,
     fncd_nome       VARCHAR(100) NOT NULL,
     fncd_documento  VARCHAR(14)  NOT NULL,
     fncd_endereco   VARCHAR(255),
     fncd_tel        VARCHAR(20)  NOT NULL,
     fncd_email      VARCHAR(100)
+) ENGINE=InnoDB;*/
+CREATE TABLE fornecedor (
+    fncd_id          INT AUTO_INCREMENT PRIMARY KEY,
+    fncd_nome        VARCHAR(100) NOT NULL,
+    fncd_documento   VARCHAR(14)  NOT NULL,
+    fncd_cep         VARCHAR(9)   NOT NULL,
+    fncd_logradouro  VARCHAR(150) NOT NULL,
+    fncd_numero      VARCHAR(20)  NOT NULL,
+    fncd_complemento VARCHAR(100),
+    fncd_bairro      VARCHAR(100) NOT NULL,
+    fncd_cidade      VARCHAR(100) NOT NULL,
+    fncd_estado      VARCHAR(2)   NOT NULL,
+    fncd_tel         VARCHAR(20)  NOT NULL,
+    fncd_email       VARCHAR(100)
 ) ENGINE=InnoDB;
 
 -- =========================

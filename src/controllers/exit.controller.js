@@ -176,14 +176,19 @@ const getAllExits = async (req, res) => {
       LEFT JOIN localizacao_produtos lp ON s.lcl_id = lp.lcl_id
       LEFT JOIN produto p ON lp.pdt_id = p.pdt_id
       LEFT JOIN localizacao l ON lp.loc_id = l.loc_id
-      LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id
+      LEFT JOIN (
+        SELECT pdt_id, MIN(pdt_validade) AS pdt_validade
+        FROM entrada_produtos
+        WHERE pdt_validade IS NOT NULL
+        GROUP BY pdt_id
+      ) ep ON p.pdt_id = ep.pdt_id
       ORDER BY s.lcl_data_saida DESC
     `);
     res.json(rows);
   } catch (error) {
     console.error("Erro ao listar saídas:", error);
     res.status(500).json({ erro: "Erro ao listar saídas" });
-  }
+  }   // LEFT JOIN entrada_produtos ep ON p.pdt_id = ep.pdt_id 
 };
 
 // Exportando os módulos de criação e listagem para a rota
