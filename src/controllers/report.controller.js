@@ -104,21 +104,20 @@ const minimumStock = async (req, res) => {
   }
 };
 
-// Função para listar relatórios de auditoria (com filtros de período seguros)
+// Função para listar relatórios de auditoria (com filtros de período personalizados e seguros)
 const getAuditReports = async (req, res) => {
-  const { period } = req.query; // Esperado: 'semanal/weekly', 'mensal/monthly', 'anual/annual'
+  const { startDate, endDate } = req.query; // Agora esperamos as datas exatas
   let dateFilter = "";
+  const queryParams = [];
 
-  // Validação estrita para evitar SQL Injection (só aceita valores pré-definidos)
-  if (period === "weekly") {
-    dateFilter = "AND aud_data >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)";
-  } else if (period === "monthly") {
-    dateFilter = "AND aud_data >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)";
-  } else if (period === "annual") {
-    dateFilter = "AND aud_data >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
+  // Se o Front-end mandar as duas datas, a gente cria o filtro seguro contra SQL Injection
+  if (startDate && endDate) {
+    dateFilter = "AND aud_data BETWEEN ? AND ?";
+    queryParams.push(startDate, endDate);
   }
 
   try {
+    // Passamos os queryParams no final do pool.execute para substituir os '?'
     const [reports] = await pool.execute(`
       SELECT 
         a.aud_id,
@@ -133,7 +132,7 @@ const getAuditReports = async (req, res) => {
       LEFT JOIN usuarios u ON a.user_id = u.user_id
       WHERE 1=1 ${dateFilter}
       ORDER BY a.aud_data DESC, a.aud_time DESC
-    `);
+    `, queryParams);
 
     res.json(reports);
   } catch (error) {
