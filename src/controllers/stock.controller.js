@@ -46,7 +46,8 @@ const calculateStock = async (req, res) => {
 
 const getAllStock = async (req, res) => {
   try {
-    // Uma linha por produto ativo com estoque consolidado.
+    // Retorna produtos ativos com estoque consolidado e detalhes de lote/validade
+    // para montagem do modal de lotes no frontend.
     const [todoEstoque] = await pool.execute(`
       SELECT 
           p.pdt_id,
@@ -54,6 +55,9 @@ const getAllStock = async (req, res) => {
           p.pdt_estoque_minimo,
           p.pdt_descricao,
           p.pdt_codigo,
+          ep.ent_prod_lote AS lote,
+          ep.ent_prod_qtde AS quantidade_lote,
+          ep.pdt_validade,
           (
             COALESCE((
               SELECT SUM(ep2.ent_prod_qtde)
@@ -69,8 +73,9 @@ const getAllStock = async (req, res) => {
             ), 0)
           ) AS estoque_atual
       FROM produto p
+      LEFT JOIN entrada_produtos ep ON ep.pdt_id = p.pdt_id
       WHERE p.pdt_ativo = 1
-      ORDER BY p.pdt_nome ASC
+      ORDER BY p.pdt_nome ASC, ep.pdt_validade ASC
     `);
 
     res.json(todoEstoque);
