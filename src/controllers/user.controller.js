@@ -391,7 +391,7 @@ exports.updatePassword = async (req, res) => {
       return res.status(404).json({ erro: "Usuário não encontrado" });
 
     const user = usuarios[0];
-    const senhaValida = await bcrypt.compare(senhaAtual, user.user_senha);
+    const senhaValida = await bcryptCompare(senhaAtual, user.user_senha);
     if (!senhaValida)
       return res.status(400).json({ erro: "Senha atual incorreta" });
     
@@ -404,7 +404,7 @@ exports.updatePassword = async (req, res) => {
 
     return res.status(200).json({ mensagem: "Senha atualizada com sucesso" });
   } catch (error) {
-    console.error("Erro ao atualizar senha:", error);4
+    console.error("Erro ao atualizar senha:", error);
     return res.status(500).json({ erro: "Erro interno ao atualizar senha" });
   }
 };
