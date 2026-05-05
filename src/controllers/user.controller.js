@@ -144,7 +144,7 @@ exports.createUser = async (req, res) => {
 // atualizar usuário
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
-  const { user_nome, user_nivel_acesso, user_ativo, user_senha } = req.body;
+  const { user_nome, user_nivel_acesso, user_ativo, user_senha, user_email } = req.body;
 
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
   // const ativoNormalizado = Number(user_ativo);
@@ -216,6 +216,12 @@ exports.updateUser = async (req, res) => {
       nivelAcessoNormalizado,
       ativoNormalizado,
     ];
+    
+    // se o email foi preenchido, adiciona no UPDATE
+    if (user_email && user_email.trim() !== "") {
+      updateQuery += `, user_email = ?`;
+      params.push(user_email);
+    }
 
     // Se a senha foi preenchida, adiciona no UPDATE
     if (user_senha && user_senha.trim() !== "") {
@@ -344,7 +350,7 @@ exports.loginUser = async (req, res) => {
         user_nome: user.user_nome,
         user_nivel_acesso: user.user_nivel_acesso,
       },
-      jwtSecret,
+      jwtSecret, 
       { expiresIn: "12h" },
     );
 
@@ -509,7 +515,7 @@ exports.resetPasswordWithPin = async (req, res) => {
     }
 
     const userId = usuarios[0].user_id;
-    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    const senhaHash = await passwordWithHash(novaSenha);
 
     await pool.execute(
       `UPDATE usuarios 

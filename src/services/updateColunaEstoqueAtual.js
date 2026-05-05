@@ -1,8 +1,6 @@
-const pool = require("../config/database");
-
-const updateColunaEstoqueAtual = async (pool) => {
+const updateColunaEstoqueAtual = async () => {
   try {
-    const [rows] = await pool.execute(`
+    const [rows] = await pool.query(`
                UPDATE produto p
                SET pdt_estoque_atual =
             COALESCE((

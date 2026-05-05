@@ -3,7 +3,18 @@ const pool = require("../config/database");
 // listagem de fornecedores
 exports.getAll = async (req, res) => {
   try {
-    const [rows] = await pool.execute("SELECT * FROM fornecedor");
+    const [rows] = await pool.execute(`
+      SELECT
+        f.*,
+        CONCAT(
+          f.fncd_logradouro, ', ', f.fncd_numero,
+          IF(f.fncd_complemento IS NULL OR f.fncd_complemento = '', '', CONCAT(' - ', f.fncd_complemento)),
+          ' - ', f.fncd_bairro,
+          ' - ', f.fncd_cidade, '/', f.fncd_estado,
+          ' - CEP: ', f.fncd_cep
+        ) AS fncd_endereco
+      FROM fornecedor f
+    `);
     res.json(rows);
   } catch (error) {
     res.status(500).json({ erro: "Erro ao listar fornecedores" });
@@ -16,7 +27,19 @@ exports.getById = async (req, res) => {
 
   try {
     const [rows] = await pool.execute(
-      "SELECT * FROM fornecedor WHERE fncd_id = ?",
+      `
+        SELECT
+          f.*,
+          CONCAT(
+            f.fncd_logradouro, ', ', f.fncd_numero,
+            IF(f.fncd_complemento IS NULL OR f.fncd_complemento = '', '', CONCAT(' - ', f.fncd_complemento)),
+            ' - ', f.fncd_bairro,
+            ' - ', f.fncd_cidade, '/', f.fncd_estado,
+            ' - CEP: ', f.fncd_cep
+          ) AS fncd_endereco
+        FROM fornecedor f
+        WHERE f.fncd_id = ?
+      `,
       [id],
     );
 
