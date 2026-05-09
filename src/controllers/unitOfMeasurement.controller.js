@@ -1,7 +1,7 @@
 const pool = require("../config/database");
 
 // LISTAR TODAS AS UNIDADES
-exports.getAll = async (req, res) => {
+exports.getAllUnits = async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT * FROM unidade_medida");
     res.json(rows);
@@ -12,7 +12,7 @@ exports.getAll = async (req, res) => {
 };
 
 // BUSCAR POR ID
-exports.getById = async (req, res) => {
+exports.getUnitsById = async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -35,7 +35,7 @@ exports.getById = async (req, res) => {
 };
 
 // CRIAR NOVA UNIDADE
-exports.create = async (req, res) => {
+exports.createUnits = async (req, res) => {
   const { unid_med_sigla } = req.body;
 
   if (!unid_med_sigla) {
@@ -93,7 +93,7 @@ exports.create = async (req, res) => {
 };
 
 // ATUALIZAR UNIDADE
-exports.update = async (req, res) => {
+exports.updateUnits = async (req, res) => {
   const { id } = req.params;
   const { unid_med_sigla } = req.body;
 
@@ -167,7 +167,7 @@ exports.update = async (req, res) => {
 };
 
 // DELETAR UNIDADE
-exports.delete = async (req, res) => {
+exports.deleteUnits = async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -188,7 +188,7 @@ exports.delete = async (req, res) => {
   } catch (error) {
     console.error("Erro ao remover unidade de medida:", error);
 
-    // Proteção de Integridade Referencial (Chave Estrangeira)
+    // proteção de integridade referencial - chave estrangeira
     if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
       return res.status(400).json({ 
         erro: "Não é possível excluir esta unidade pois existem produtos vinculados a ela." 

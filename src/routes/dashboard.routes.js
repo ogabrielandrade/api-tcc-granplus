@@ -1,9 +1,11 @@
-const express = require("express");
-const router = express.Router();
+const router = require("express").Router();
+const {
+  getDashboardResume,
+  resumeForProduct,
+} = require("../controllers/dashboard.controller");
+const requireOwnerOrAdmin = require("../middlewares/owner");
 
-const {getDashboardResume, resumeForProduct} = require("../controllers/dashboard.controller");
-
-router.get("/resumo", getDashboardResume);
-router.get("/resumo/:pdt_id", resumeForProduct);
+router.get("/resumo", requireOwnerOrAdmin, getDashboardResume);
+router.get("/resumo/:pdt_id", requireOwnerOrAdmin, resumeForProduct);
 
 module.exports = router;

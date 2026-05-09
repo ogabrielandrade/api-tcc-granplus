@@ -5,12 +5,12 @@ const stockRoutes = require("./src/routes/stock.routes");
 const inputRoutes = require("./src/routes/input.routes");
 const exitRoutes = require("./src/routes/exit.routes");
 const userRoutes = require("./src/routes/user.routes");
-const fornecedorRoutes = require("./src/routes/fornecedorRoutes");
-const categoriasRoutes = require("./src/routes/categoriasRoutes");
+const fornecedorRoutes = require("./src/routes/supplier.routes");
+const categoriasRoutes = require("./src/routes/category.routesjs");
 const relatorios = require("./src/routes/report.routes");
 const umedidaRoutes = require("./src/routes/unidadeDeMedidaRoutes");
 const localizacaoRoutes = require("./src/routes/localizacaoRoutes");
-const dashboardRoutes = require('./src/routes/dashboard.routes');
+const dashboardRoutes = require("./src/routes/dashboard.routes");
 const dataBase = require("./src/routes/database.routes");
 
 const app = express();
@@ -29,6 +29,6 @@ app.use("/relatorios", relatorios);
 app.use("/database", dataBase);
 app.use("/unidademedidas", umedidaRoutes);
 app.use("/localizacoes", localizacaoRoutes);
-app.use("/dashboard", dashboardRoutes)
+app.use("/dashboard", dashboardRoutes);
 
 module.exports = app;

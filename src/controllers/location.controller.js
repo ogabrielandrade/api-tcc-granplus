@@ -1,7 +1,7 @@
 const pool = require("../config/database");
 
-// LISTAR localizações
-exports.listarLocalizacoes = async (req, res) => {
+// LISTAR LOCALIZAÇÕES
+exports.listLocation = async (req, res) => {
   try {
     const [result] = await pool.query("SELECT * FROM localizacao");
     return res.status(200).json(result);
@@ -10,8 +10,8 @@ exports.listarLocalizacoes = async (req, res) => {
   }
 };
 
-// BUSCAR localização por ID
-exports.buscarLocalizacao = async (req, res) => {
+// BUSCAR LOCALIZAÇÃO POR ID
+exports.searchLocation = async (req, res) => {
   const { id } = req.params;
   try {
     const [result] = await pool.execute("SELECT * FROM localizacao WHERE loc_id = ?", [id]);
@@ -28,8 +28,8 @@ exports.buscarLocalizacao = async (req, res) => {
   }
 };
 
-// CRIAR localização
-exports.criarLocalizacao = async (req, res) => {
+// CRIAR LOCALIZAÇÃO
+exports.createLocation = async (req, res) => {
   const { loc_nome, loc_desc } = req.body;
   try {
     // Tratamento defensivo de Strings
@@ -55,8 +55,8 @@ exports.criarLocalizacao = async (req, res) => {
   }
 };
 
-// ATUALIZAR localização
-exports.atualizarLocalizacao = async (req, res) => {
+// ATUALIZAR LOCALIZAÇÃO
+exports.updateLocation = async (req, res) => {
   const { id } = req.params;
   const { loc_nome, loc_desc } = req.body;
   try {
@@ -85,12 +85,12 @@ exports.atualizarLocalizacao = async (req, res) => {
   }
 };
 
-// DELETAR localização
-exports.deletarLocalizacao = async (req, res) => {
+// DELETAR LOCALIZAÇÃO
+exports.deleteLocation = async (req, res) => {
   const { id } = req.params;
   try {
     const [result] = await pool.execute("DELETE FROM localizacao WHERE loc_id = ?", [id]);
-    if (result.affectedRows === 0) {
+    if (result.affectedRows === 0) { // diferente de comando select, o delete, update e insert não retornam arrays, mas objetos com metadados
       return res.status(404).json({ erro: "Localização não encontrada" });
     }
 
