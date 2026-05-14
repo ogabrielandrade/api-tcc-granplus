@@ -141,5 +141,103 @@ const getAuditReports = async (req, res) => {
   }
 };
 
+// --- NOVIDADE: A FUNÇÃO CORINGA PARA O PDF DINÂMICO ---
+const getRelatorioDinamico = async (req, res) => {
+  const { tipo, startDate, endDate } = req.query;
+
+  let query = "";
+  const queryParams = [];
+
+  try {
+    switch (tipo) {
+      case "geral":
+        if (!startDate || !endDate) return res.status(400).json({ erro: "Datas obrigatórias para este relatório." });
+        query = `
+          SELECT a.aud_id, a.aud_acao, a.aud_data, a.aud_time, u.user_nome 
+          FROM auditoria a
+          LEFT JOIN usuarios u ON a.user_id = u.user_id
+          WHERE a.aud_data BETWEEN ? AND ?
+          ORDER BY a.aud_data DESC, a.aud_time DESC
+        `;
+        queryParams.push(startDate, endDate);
+        break;
+
+      case "entradas":
+        if (!startDate || !endDate) return res.status(400).json({ erro: "Datas obrigatórias para este relatório." });
+        query = `
+          SELECT p.pdt_nome, ep.ent_prod_qtde AS quantidade, ent_data AS data 
+          FROM entrada_produtos ep
+          JOIN produto p ON ep.pdt_id = p.pdt_id
+          WHERE ent_data BETWEEN ? AND ?
+          ORDER BY ent_data DESC
+        `;
+        queryParams.push(startDate, endDate);
+        break;
+
+      case "saidas":
+        if (!startDate || !endDate) return res.status(400).json({ erro: "Datas obrigatórias para este relatório." });
+        query = `
+          SELECT p.pdt_nome, sp.lcl_qtde AS quantidade, lcl_data_saida AS data 
+          FROM saida_produtos sp
+          JOIN localizacao_produtos lp ON sp.lcl_id = lp.lcl_id
+          JOIN produto p ON lp.pdt_id = p.pdt_id
+          WHERE sp.sai_data BETWEEN ? AND ?
+          ORDER BY sp.sai_data DESC
+        `;
+        queryParams.push(startDate, endDate);
+        break;
+
+      case "abaixo_estoque":
+        // Este relatório não usa data, avalia o estoque atual completo
+        query = `
+          SELECT dados.pdt_id, dados.pdt_nome, dados.pdt_estoque_minimo, dados.total_estoque
+          FROM (
+            SELECT p.pdt_id, p.pdt_nome, p.pdt_estoque_minimo,
+              (
+                COALESCE((SELECT SUM(ep.ent_prod_qtde) FROM entrada_produtos ep WHERE ep.pdt_id = p.pdt_id), 0) -
+                COALESCE((SELECT SUM(sp.lcl_qtde) FROM saida_produtos sp JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id WHERE lp.pdt_id = p.pdt_id), 0)
+              ) AS total_estoque
+            FROM produto p WHERE p.pdt_ativo = 1
+          ) AS dados
+          WHERE dados.total_estoque < dados.pdt_estoque_minimo
+          ORDER BY dados.total_estoque ASC
+        `;
+        break;
+
+      case "negativos":
+        // Mesmo cálculo de estoque, mas apenas os negativos (< 0)
+        query = `
+          SELECT dados.pdt_id, dados.pdt_nome, dados.pdt_estoque_minimo, dados.total_estoque
+          FROM (
+            SELECT p.pdt_id, p.pdt_nome, p.pdt_estoque_minimo,
+              (
+                COALESCE((SELECT SUM(ep.ent_prod_qtde) FROM entrada_produtos ep WHERE ep.pdt_id = p.pdt_id), 0) -
+                COALESCE((SELECT SUM(sp.lcl_qtde) FROM saida_produtos sp JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id WHERE lp.pdt_id = p.pdt_id), 0)
+              ) AS total_estoque
+            FROM produto p WHERE p.pdt_ativo = 1
+          ) AS dados
+          WHERE dados.total_estoque < 0
+          ORDER BY dados.total_estoque ASC
+        `;
+        break;
+
+      default:
+        return res.status(400).json({ erro: "Tipo de relatório inválido" });
+    }
+
+    const [resultado] = await pool.execute(query, queryParams);
+    res.json(resultado);
+
+  } catch (error) {
+    console.error("Erro no relatório dinâmico:", error);
+    res.status(500).json({ erro: "Erro ao gerar os dados do relatório" });
+  }
+};
+
 // Exporta os controllers para uso nas rotas
-module.exports = { getMoreMovedProducts, minimumStock, getAuditReports };
+module.exports = { 
+  getMoreMovedProducts, 
+  minimumStock, 
+  getAuditReports, 
+  getRelatorioDinamico // A nova função foi adicionada aqui
+};
