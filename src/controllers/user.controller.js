@@ -1,35 +1,37 @@
 const pool = require("../config/database");
-const { bcryptCompare, passwordWithHash } = require('../services/bcrypt'); 
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto"); // gera o pin de 6 dígitos do reset de senha
 const nodemailer = require("nodemailer");
+const { bcryptCompare, passwordWithHash } = require("../services/bcrypt");
+const { registerAudit } = require("../services/audit.services");
 
-// --- ADICIONE A CONFIGURAÇÃO DO GMAIL ---
+// ADICIONE A CONFIGURAÇÃO DO GMAIL
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS 
-
-  }
+    pass: process.env.GMAIL_PASS,
+  },
 });
 
+// NORMALIZAR NÍVEL DE ACESSO
 const normalizeAccessLevel = (level) => {
   const value = String(level || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase(); // prop level é transformada em string, sem espaços em branco e em letras minúsculas
+
   if (value === "admin") return "admin";
-  if (
-    value === "user" ||
-    value === "usuario" ||
-    value === "operador" ||
-    value === "operator"
-  )
-    return "user";
-  return null;
+    if (
+      value === "user" ||
+      value === "usuario" ||
+      value === "operador" ||
+      value === "operator"
+    )
+      return "user";
+    return null;
 };
 
-// listar todos os usuarios
+// LISTAR TODOS OS USUÁRIOS
 exports.getAllUsers = async (req, res) => {
   try {
     const [usuarios] = await pool.query(
@@ -54,7 +56,7 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// buscar usuario por id
+// BUSCAR USUÁRIO POR ID
 exports.getUserById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -84,12 +86,12 @@ exports.getUserById = async (req, res) => {
   }
 };
 
-// criar novo usuario
+// CRIAR NOVO USUARIO
 exports.createUser = async (req, res) => {
   const { user_nome, user_senha, user_nivel_acesso } = req.body;
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
 
-  // 1. Validação de Entrada: Garante que todos os dados obrigatórios foram enviados
+  // validação de entrada: garante que todos os dados obrigatórios foram enviados
   if (!user_nome || !user_senha || !user_nivel_acesso) {
     return res.status(400).json({
       erro: "Nome, senha e nível de acesso são obrigatórios",
@@ -103,7 +105,7 @@ exports.createUser = async (req, res) => {
   }
 
   try {
-    // 2. Verificar se o usuário já existe
+    // verificar se o usuário já existe
     const [existeUsuario] = await pool.execute(
       `SELECT user_id FROM usuarios WHERE user_nome = ?`,
       [user_nome],
@@ -113,18 +115,31 @@ exports.createUser = async (req, res) => {
       return res.status(409).json({ erro: "Usuário já existe" });
     }
 
-    // 3. Criptografar senha (Hash)
+    // criptografar senha (Hash)
     const senhaHash = await passwordWithHash(user_senha);
     // const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
-    // 4. Inserir no banco
+    // inserir no banco
     const [result] = await pool.execute(
       `INSERT INTO usuarios (user_nome, user_senha, user_nivel_acesso)
        VALUES (?, ?, ?)`,
       [user_nome, senhaHash, nivelAcessoNormalizado],
     );
 
-    // 5. Resposta de Sucesso
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Usuário ${user_nome} criado`,
+        "usuarios",
+        result.insertId
+      )
+    } catch (error) {
+      console.error({
+        error: message
+      })
+    }
+
+    // resposta de Sucesso
     return res.status(201).json({
       mensage: "Usuário criado com sucesso",
       usuario: {
@@ -141,7 +156,7 @@ exports.createUser = async (req, res) => {
   }
 };
 
-// atualizar usuário
+// ATUALIZAR USUÁRIO
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
   const { user_nome, user_nivel_acesso, user_ativo, user_senha, user_email } = req.body;
@@ -200,7 +215,11 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    // verificar se quem está fazendo a requisição é admin (com '?' de proteção)
+    const [nomeUsuario] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+
+    const nomeUsuarioAntigo = nomeUsuario[0].user_nome;
+
+    // verificar se quem está fazendo a requisição é admin 
     //const isAdmin = req.user.user_nivel_acesso === "admin";
     const isAdmin = req.user?.user_nivel_acesso === "admin" ? 1 : 0;
 
@@ -234,7 +253,14 @@ exports.updateUser = async (req, res) => {
     updateQuery += ` WHERE user_id = ?`;
     params.push(id);
 
-    await pool.query(updateQuery, params);
+    await pool.execute(updateQuery, params);
+
+    await registerAudit(
+      req.user.user_id,
+      `Usuário ${nomeUsuarioAntigo} atualizado para ${user_nome}`,
+      "usuarios",
+      updateQuery.insertId
+    )
 
     return res.status(200).json({
       mensagem: "Usuário atualizado com sucesso",
@@ -250,17 +276,29 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// desativar usuário (soft delete)
+// DESATIVAR USUÁRIO (SOFT DELETE)
 exports.deleteUser = async (req, res) => {
   const { id } = req.params;
 
   try {
+
+    const [nome] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+
+    const nomeUsuario = nome[0].user_nome;
+
     const [result] = await pool.execute(
       `UPDATE usuarios
        SET user_ativo = 0
        WHERE user_id = ? AND user_ativo = 1`,
       [id],
     );
+
+    await registerAudit(
+      req.user.user_id,
+      `Usuário ${nomeUsuario} desativado`,
+      "usuarios",
+      result.insertId
+    )
 
     // nenhum registro afetado
     if (result.affectedRows === 0) {
@@ -280,7 +318,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-// login de usuário
+// LOGIN DE USUÁRIO
 exports.loginUser = async (req, res) => {
   const { user_nome, user_senha } = req.body;
 
@@ -330,10 +368,10 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // 1. Busca a chave do .env / token
+    // busca a chave do .env / token
     const jwtSecret = process.env.JWT_SECRET;
 
-    // 2. Trava de segurança: impede o login se a chave não existir no ambiente
+    // trava de segurança: impede o login se a chave não existir no ambiente
     if (!jwtSecret) {
       console.error(
         "ERRO CRÍTICO: Variável JWT_SECRET não configurada no .env!",
@@ -343,7 +381,7 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // 3. Gerar token seguro
+    // gerar token seguro
     const token = jwt.sign(
       {
         user_id: user.user_id,
@@ -371,7 +409,8 @@ exports.loginUser = async (req, res) => {
     });
   }
 };
-// editar senha do usuário
+
+// EDITAR SENHA DO USUÁRIO
 exports.updatePassword = async (req, res) => {
   const { id } = req.params;
   const { senhaAtual, novaSenha } = req.body;
@@ -394,7 +433,7 @@ exports.updatePassword = async (req, res) => {
     const senhaValida = await bcryptCompare(senhaAtual, user.user_senha);
     if (!senhaValida)
       return res.status(400).json({ erro: "Senha atual incorreta" });
-    
+
     // const senhaHash = await bcrypt.hash(novaSenha, 10);
     const senhaHash = await passwordWithHash(novaSenha);
     await pool.query("UPDATE usuarios SET user_senha = ? WHERE user_id = ?", [
@@ -415,33 +454,36 @@ exports.updatePassword = async (req, res) => {
 
 const maskEmail = (email) => {
   if (!email) return null;
-  const [nome, dominio] = email.split('@');
+  const [nome, dominio] = email.split("@");
   if (nome.length <= 3) return `***@${dominio}`;
   const finalDoNome = nome.slice(-4);
   return `****${finalDoNome}@${dominio}`;
 };
 
-// 1. Verifica se usuário existe e devolve o email escondido
+// verifica se usuário existe e devolve o email escondido
 exports.verifyUserForReset = async (req, res) => {
   const { user_nome } = req.body;
 
-  if (!user_nome) return res.status(400).json({ erro: "Nome de usuário é obrigatório" });
+  if (!user_nome)
+    return res.status(400).json({ erro: "Nome de usuário é obrigatório" });
 
   try {
     const [usuarios] = await pool.execute(
       `SELECT user_email FROM usuarios WHERE user_nome = ? AND user_ativo = 1`,
-      [user_nome]
+      [user_nome],
     );
 
     if (usuarios.length === 0 || !usuarios[0].user_email) {
-      return res.status(404).json({ erro: "Usuário não encontrado ou sem e-mail cadastrado." });
+      return res
+        .status(404)
+        .json({ erro: "Usuário não encontrado ou sem e-mail cadastrado." });
     }
 
     const emailMascarado = maskEmail(usuarios[0].user_email);
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       mensagem: "Usuário encontrado",
-      emailMascarado: emailMascarado 
+      emailMascarado: emailMascarado,
     });
   } catch (error) {
     console.error("Erro no verifyUserForReset:", error);
@@ -449,31 +491,32 @@ exports.verifyUserForReset = async (req, res) => {
   }
 };
 
-// 2. Gera o código de 6 dígitos e envia por e-mail
+// gera o código de 6 dígitos e envia por e-mail
 exports.sendResetPin = async (req, res) => {
   const { user_nome } = req.body;
 
   try {
     const [usuarios] = await pool.execute(
       `SELECT user_id, user_nome, user_email FROM usuarios WHERE user_nome = ?`,
-      [user_nome]
+      [user_nome],
     );
 
-    if (usuarios.length === 0) return res.status(404).json({ erro: "Usuário não encontrado" });
+    if (usuarios.length === 0)
+      return res.status(404).json({ erro: "Usuário não encontrado" });
 
     const user = usuarios[0];
     const pin = Math.floor(100000 + Math.random() * 900000).toString(); // PIN 6 dígitos
-    
+
     const expireTime = new Date();
     expireTime.setMinutes(expireTime.getMinutes() + 15); // Vale por 15 min
 
     await pool.execute(
       `UPDATE usuarios SET reset_token = ?, reset_expires = ? WHERE user_id = ?`,
-      [pin, expireTime, user.user_id]
+      [pin, expireTime, user.user_id],
     );
 
     await transporter.sendMail({
-      from: '"Sistema de Estoque" <' + process.env.GMAIL_USER + '>', // O mesmo Gmail
+      from: '"Sistema de Estoque" <' + process.env.GMAIL_USER + ">", // O mesmo Gmail
       to: user.user_email,
       subject: "Seu código de recuperação de senha: " + pin,
       html: `
@@ -488,26 +531,30 @@ exports.sendResetPin = async (req, res) => {
       `,
     });
 
-    return res.status(200).json({ mensagem: "Código enviado com sucesso para o e-mail." });
+    return res
+      .status(200)
+      .json({ mensagem: "Código enviado com sucesso para o e-mail." });
   } catch (error) {
     console.error("Erro no sendResetPin:", error);
     return res.status(500).json({ erro: "Erro ao enviar o código" });
   }
 };
 
-// 3. Recebe o PIN e a Senha Nova, e salva no banco
+// recebe o PIN e a Senha Nova, e salva no banco
 exports.resetPasswordWithPin = async (req, res) => {
   const { user_nome, pin, novaSenha } = req.body;
 
   if (!user_nome || !pin || !novaSenha) {
-    return res.status(400).json({ erro: "Usuário, código PIN e nova senha são obrigatórios" });
+    return res
+      .status(400)
+      .json({ erro: "Usuário, código PIN e nova senha são obrigatórios" });
   }
 
   try {
     const [usuarios] = await pool.execute(
       `SELECT user_id FROM usuarios 
        WHERE user_nome = ? AND reset_token = ? AND reset_expires > NOW()`,
-      [user_nome, pin]
+      [user_nome, pin],
     );
 
     if (usuarios.length === 0) {
@@ -521,10 +568,12 @@ exports.resetPasswordWithPin = async (req, res) => {
       `UPDATE usuarios 
        SET user_senha = ?, reset_token = NULL, reset_expires = NULL 
        WHERE user_id = ?`,
-      [senhaHash, userId]
+      [senhaHash, userId],
     );
 
-    return res.status(200).json({ mensagem: "Senha redefinida com sucesso! Pode fazer login." });
+    return res
+      .status(200)
+      .json({ mensagem: "Senha redefinida com sucesso! Pode fazer login." });
   } catch (error) {
     console.error("Erro no resetPasswordWithPin:", error);
     return res.status(500).json({ erro: "Erro ao redefinir a senha" });

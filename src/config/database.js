@@ -1,5 +1,5 @@
-require("dotenv").config(); 
-const mysql = require("mysql2/promise"); // Cliente MySQL para Node.js com foco em performance; suporta instruções preparadas 
+require("dotenv").config();
+const mysql = require("mysql2/promise"); // Cliente MySQL para Node.js com foco em performance; suporta instruções preparadas
 
 const config = {
   // Obtém as configurações do banco de dados a partir do arquivo .env
