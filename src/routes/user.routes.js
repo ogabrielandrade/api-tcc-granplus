@@ -8,7 +8,7 @@ const requireAdmin = require("../middlewares/requireAdmin");
 const requireOwnerOrAdmin = require("../middlewares/owner");
 
 // rota pública
-router.post("/login", userController.loginUser);
+router.post("/login", userController.loginUser); // ok
 
 // O fluxo de redefinição com PIN de 6 dígitos
 router.post("/verificar-usuario", userController.verifyUserForReset); 

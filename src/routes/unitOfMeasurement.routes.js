@@ -5,7 +5,6 @@ const controller = require("../controllers/unitOfMeasurement.controller");
 const authenticateToken = require("../middlewares/authenticateToken");
 const requireAdmin = require("../middlewares/requireAdmin");
 
-// 1. Escudo Base: Ninguém entra sem estar logado (Token JWT)
 router.use(authenticateToken);
 
 // ROTAS GERAIS (Qualquer usuário logado)

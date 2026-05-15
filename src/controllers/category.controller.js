@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const { registerAudit } = require("../services/audit.services")
 
 // LISTAGEM DE CATEGORIAS
 exports.getAllCategory = async (req, res) => {
@@ -62,6 +63,16 @@ exports.createCategory = async (req, res) => {
       [nomeCategoria],
     );
 
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Categoria ${nomeCategoria} criada`,
+        "Categorias",
+        result.insertId)
+    } catch (error) {
+      res.status(500).json({ erro: "Erro ao registrar criação de categoria" })
+    }
+
     res.status(201).json({
       mensagem: "Categoria criada com sucesso",
       id: result.insertId,
@@ -86,7 +97,7 @@ exports.updateCategory = async (req, res) => {
     }
 
     const [categoriaExistente] = await pool.execute(
-      "SELECT cat_id FROM categorias WHERE cat_id = ? LIMIT 1",
+      "SELECT cat_id, cat_nome FROM categorias WHERE cat_id = ? LIMIT 1",
       [id],
     );
 
@@ -105,9 +116,21 @@ exports.updateCategory = async (req, res) => {
       });
     }
 
-    await pool.execute("UPDATE categorias SET cat_nome = ? WHERE cat_id = ?", 
+    const nomeAnteriorCategoria = categoriaExistente[0].cat_nome;
+
+    const [result] = await pool.execute("UPDATE categorias SET cat_nome = ? WHERE cat_id = ?", 
       [nomeCategoria, id]
     );
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Categoria ${nomeAnteriorCategoria} atualizada para ${nomeCategoria}`,
+        "Categorias",
+        result.insertId)
+    } catch (error) {
+      res.status(500).json({ erro: "Erro ao atualizar categoria" })
+    }
 
     res.json({ mensagem: "Categoria atualizada com sucesso" });
   } catch (error) {
@@ -138,12 +161,30 @@ exports.deleteCategory = async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [nome] = await pool.execute("SELECT cat_nome FROM categorias WHERE cat_id = ? LIMIT 1", [id])
+
+    if (nome.length === 0) {
+      return res.status(500).json({ erro: "Categoria não encontrada" })
+    }
+
+    const nomeCategoria = nome[0].cat_nome;
+
     const [result] = await pool.execute("DELETE FROM categorias WHERE cat_id = ?", [
       id,
     ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ mensagem: "Categoria não encontrada" });
+    }
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Categoria ${nomeCategoria} deletada`,
+        "Categorias",
+        result.insertId)
+    } catch (error) {
+      res.status(500).json({ erro: "Erro ao deletar categoria" })
     }
 
     res.json({ mensagem: "Categoria removida com sucesso" });

@@ -206,15 +206,16 @@ const getEstimatedAvailableLots = async (pdtId) => {
 
 const getAvailableLots = async (req, res) => {
   try {
-    const pdtId = Number(req.query.pdt_id);
+    // const pdtId = Number(req.query.pdt_id); ************** desativei essa função, caso seja necessário, ativá-la
+    const { id } = req.params;
 
-    if (!pdtId) {
+    if (!id) {
       return res
         .status(400)
         .json({ erro: "Informe o pdt_id para listar lotes" });
     }
 
-    const disponibilidade = await getEstimatedAvailableLots(pdtId);
+    const disponibilidade = await getEstimatedAvailableLots(id);
 
     if (!disponibilidade) {
       return res.status(404).json({ erro: "Produto não encontrado" });
@@ -231,6 +232,8 @@ const getAvailableLots = async (req, res) => {
   }
 };
 
+
+// REGISTRAR SAÍDAS
 const registerExit = async (req, res) => {
   try {
     const {
@@ -249,7 +252,7 @@ const registerExit = async (req, res) => {
         .json({ erro: "Produto e quantidade são obrigatórios" });
     }
 
-    // 1. Busca o produto e estoque atual consolidado.
+    // busca o produto e estoque atual consolidado.
     const [produtoRows] = await pool.execute(
       `SELECT pdt_id, pdt_estoque_atual
        FROM produto
@@ -412,7 +415,7 @@ const registerExit = async (req, res) => {
     }
 
     // 4. Registrar a saída
-    // ⚡ AQUI A MÁGICA ACONTECE: O INSERT dispara a Trigger no banco,
+    // O INSERT dispara a Trigger no banco,
     // que vai lá na tabela 'produto' e subtrai a quantidade do 'pdt_estoque_atual'.
     const lotesResumo = lotesSelecionados
       .map((lote) => {

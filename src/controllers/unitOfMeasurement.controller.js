@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const { registerAudit } = require("../services/audit.services");
 
 // LISTAR TODAS AS UNIDADES
 exports.getAllUnits = async (req, res) => {
@@ -52,7 +53,8 @@ exports.createUnits = async (req, res) => {
 
   try {
     //const sigla = String(unid_med_sigla).trim();
-    const sigla = typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
+    const sigla =
+      typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
 
     if (!sigla) {
       return res.status(400).json({
@@ -80,12 +82,26 @@ exports.createUnits = async (req, res) => {
 
     const [result] = await pool.execute(sql, [sigla]);
 
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Unidade de medida ${sigla} criada`,
+        "unidade_medida",
+        result.insertId,
+      );
+    } catch (error) {
+      console.log("Erro ao criar unidade de medida", error);
+    }
+
     res.status(201).json({
       message: "Unidade criada com sucesso",
       id: result.insertId,
     });
   } catch (error) {
-    console.error("Erro ao criar unidade de medida, utilize até três caracteres:", error);
+    console.error(
+      "Erro ao criar unidade de medida, utilize até três caracteres:",
+      error,
+    );
     res.status(500).json({
       erro: "Erro interno ao criar unidade de medida",
     });
@@ -111,7 +127,8 @@ exports.updateUnits = async (req, res) => {
 
   try {
     //const sigla = String(unid_med_sigla).trim();
-    const sigla = typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
+    const sigla =
+      typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
 
     if (!sigla) {
       return res.status(400).json({
@@ -147,7 +164,25 @@ exports.updateUnits = async (req, res) => {
       });
     }
 
+    const [nome] = await pool.execute(
+      "SELECT unid_med_sigla FROM unidade_medida WHERE unid_med_id = ?",
+      [id],
+    );
+
+    const nomeAnterior = nome[0].unid_med_sigla;
+
     const [result] = await pool.query(sql, [sigla, id]);
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Unidade de medida ${nomeAnterior} atualizada para ${sigla}`,
+        "unidade_medida",
+        result.insertId,
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar unidade de medida");
+    }
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -171,6 +206,13 @@ exports.deleteUnits = async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [nome] = await pool.execute(
+      "SELECT unid_med_sigla FROM unidade_medida WHERE unid_med_id = ?",
+      [id],
+    );
+
+    const nomeUnidMed = nome[0].unid_med_sigla;
+
     const [result] = await pool.execute(
       "DELETE FROM unidade_medida WHERE unid_med_id = ?",
       [id],
@@ -182,6 +224,20 @@ exports.deleteUnits = async (req, res) => {
       });
     }
 
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Unidade de medida ${nomeUnidMed} excluída`,
+        "unidade_medida",
+        result.insertId,
+      );
+    } catch (error) {
+      console.error({
+        error,
+        error: message,
+      });
+    }
+
     res.json({
       message: "Unidade removida com sucesso",
     });
@@ -189,12 +245,12 @@ exports.deleteUnits = async (req, res) => {
     console.error("Erro ao remover unidade de medida:", error);
 
     // proteção de integridade referencial - chave estrangeira
-    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.errno === 1451) {
-      return res.status(400).json({ 
-        erro: "Não é possível excluir esta unidade pois existem produtos vinculados a ela." 
+    if (error.code === "ER_ROW_IS_REFERENCED_2" || error.errno === 1451) {
+      return res.status(400).json({
+        erro: "Não é possível excluir esta unidade pois existem produtos vinculados a ela.",
       });
     }
-   
+
     res.status(500).json({ erro: "Erro ao remover unidade de medida" });
   }
 };

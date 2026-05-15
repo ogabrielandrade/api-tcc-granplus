@@ -76,10 +76,10 @@ const createProduct = async (req, res) => {
         "produto",
         result.insertId,
       );
-    } catch (e) {
+    } catch (error) {
       console.error(
         "Aviso: Falha ao registrar auditoria de criação de produto",
-        e,
+        error,
       );
     }
 
@@ -116,17 +116,19 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // anti-duplicação de código na edição
-    const [codigoExiste] = await pool.execute(
-      "SELECT pdt_id FROM produto WHERE pdt_codigo = ? AND pdt_id <> ? LIMIT 1",
-      [codigo, id],
-    );
 
-    if (codigoExiste.length > 0) {
-      return res
-        .status(409)
-        .json({ error: "Este código já está em uso por outro produto" });
-    }
+    // **** PARTE COMENTADA PARA TESTE: aparentemente, nãe era possível atualização de produtos por conta desta parte
+    // anti-duplicação de código na edição
+    // const [codigoExiste] = await pool.execute(
+    //   "SELECT pdt_id FROM produto WHERE pdt_codigo = ? AND pdt_id <> ? LIMIT 1",
+    //   [codigo, id],
+    // );
+
+    // if (codigoExiste.length > 0) {
+    //   return res
+    //     .status(409)
+    //     .json({ error: "Este código já está em uso por outro produto" });
+    // }
 
     const [result] = await pool.execute(
       `UPDATE produto SET

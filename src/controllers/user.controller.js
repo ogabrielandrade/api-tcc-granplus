@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto"); // gera o pin de 6 dígitos do reset de senha
 const nodemailer = require("nodemailer");
 const { bcryptCompare, passwordWithHash } = require("../services/bcrypt");
+const { registerAudit } = require("../services/audit.services");
 
 // ADICIONE A CONFIGURAÇÃO DO GMAIL
 const transporter = nodemailer.createTransport({
@@ -20,20 +21,14 @@ const normalizeAccessLevel = (level) => {
     .toLowerCase(); // prop level é transformada em string, sem espaços em branco e em letras minúsculas
 
   if (value === "admin") return "admin";
-  //   if (
-  //     value === "user" ||
-  //     value === "usuario" ||
-  //     value === "operador" ||
-  //     value === "operator"
-  //   )
-  //     return "user";
-  //   return null;
-  value === "user" ||
-  value === "usuario" ||
-  value === "operador" ||
-  value === "operator"
-    ? "user"
-    : null;
+    if (
+      value === "user" ||
+      value === "usuario" ||
+      value === "operador" ||
+      value === "operator"
+    )
+      return "user";
+    return null;
 };
 
 // LISTAR TODOS OS USUÁRIOS
@@ -131,6 +126,19 @@ exports.createUser = async (req, res) => {
       [user_nome, senhaHash, nivelAcessoNormalizado],
     );
 
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Usuário ${user_nome} criado`,
+        "usuarios",
+        result.insertId
+      )
+    } catch (error) {
+      console.error({
+        error: message
+      })
+    }
+
     // resposta de Sucesso
     return res.status(201).json({
       mensage: "Usuário criado com sucesso",
@@ -207,7 +215,11 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    // verificar se quem está fazendo a requisição é admin (com '?' de proteção)
+    const [nomeUsuario] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+
+    const nomeUsuarioAntigo = nomeUsuario[0].user_nome;
+
+    // verificar se quem está fazendo a requisição é admin 
     //const isAdmin = req.user.user_nivel_acesso === "admin";
     const isAdmin = req.user?.user_nivel_acesso === "admin" ? 1 : 0;
 
@@ -235,7 +247,14 @@ exports.updateUser = async (req, res) => {
     updateQuery += ` WHERE user_id = ?`;
     params.push(id);
 
-    await pool.query(updateQuery, params);
+    await pool.execute(updateQuery, params);
+
+    await registerAudit(
+      req.user.user_id,
+      `Usuário ${nomeUsuarioAntigo} atualizado para ${user_nome}`,
+      "usuarios",
+      updateQuery.insertId
+    )
 
     return res.status(200).json({
       mensagem: "Usuário atualizado com sucesso",
@@ -256,12 +275,24 @@ exports.deleteUser = async (req, res) => {
   const { id } = req.params;
 
   try {
+
+    const [nome] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+
+    const nomeUsuario = nome[0].user_nome;
+
     const [result] = await pool.execute(
       `UPDATE usuarios
        SET user_ativo = 0
        WHERE user_id = ? AND user_ativo = 1`,
       [id],
     );
+
+    await registerAudit(
+      req.user.user_id,
+      `Usuário ${nomeUsuario} desativado`,
+      "usuarios",
+      result.insertId
+    )
 
     // nenhum registro afetado
     if (result.affectedRows === 0) {

@@ -6,7 +6,7 @@ const requireAdmin = require("../middlewares/requireAdmin");
 const router = express.Router();
 router.use(authenticateToken);
 
-router.get("/", requireAdmin, getAllStock);
-router.get("/:id", requireAdmin, calculateStock);
+router.get("/", requireAdmin, getAllStock); 
+router.get("/:id", requireAdmin, calculateStock); 
 
 module.exports = router;

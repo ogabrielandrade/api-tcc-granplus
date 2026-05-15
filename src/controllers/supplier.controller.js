@@ -1,4 +1,5 @@
 const pool = require("../config/database");
+const { registerAudit } = require("../services/audit.services");
 
 // LISTAGEM DE FORNECEDORES
 exports.getAllSupplier = async (req, res) => {
@@ -6,7 +7,7 @@ exports.getAllSupplier = async (req, res) => {
     const [rows] = await pool.execute("SELECT * FROM fornecedor");
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao listar fornecedores" });
+    res.status(500).json({ erro: "Erro ao listar fornecedores", error });
   }
 };
 
@@ -147,7 +148,16 @@ exports.createSupplier = async (req, res) => {
       ],
     );
 
-    // TENTAR APLICAR AQUI O SERVICE DE AUDITORIA
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Fornecedor ${nome} criado`,
+        "fornecedor",
+        result.insertId,
+      );
+    } catch (error) {
+      console.error("Erro ao criar fornecedor", error);
+    }
 
     res.status(201).json({
       mensagem: "Fornecedor criado com sucesso",
@@ -288,6 +298,17 @@ exports.updateSupplier = async (req, res) => {
       ],
     );
 
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Fornecedor ${nome} atualizado`,
+        "fornecedor",
+        result.insertId,
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar fornecedor", error);
+    }
+
     res.json({ mensagem: "Fornecedor atualizado com sucesso" });
   } catch (error) {
     console.error("Erro ao atualizar fornecedor:", error);
@@ -300,10 +321,28 @@ exports.deleteSupplier = async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [nome] = await pool.execute(
+      "SELECT fncd_nome FROM fornecedor WHERE fncd_id = ?",
+      [id],
+    );
+
+    const nomeFornecedor = nome[0].fncd_nome;
+
     const [result] = await pool.execute(
       "DELETE FROM fornecedor WHERE fncd_id = ?",
       [id],
     );
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Fornecedor ${nomeFornecedor} deletado`,
+        "fornecedor",
+        result.insertId,
+      );
+    } catch (error) {
+      console.error("Erro ao deletar fornecedor", error);
+    }
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ mensagem: "Fornecedor não encontrado" });

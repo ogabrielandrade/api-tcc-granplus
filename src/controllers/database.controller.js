@@ -26,5 +26,4 @@ exports.testDataBase = async (req, res) => {
     });
   }
 };
-/* pdt_id = 1 é que, se um dia você limpar a sua tabela de produtos ou deletar esse produto número 1,
- a query vai retornar um array vazio []*/
+
