@@ -4,7 +4,7 @@ const calculateStock = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Retorna uma unica linha do produto com saldo consolidado.
+    // Retorna uma unica linha do produto com saldo consolidado. COALESCE: retorna primeiro valor não nulo, ou 0
     const [produto] = await pool.execute(
       `SELECT 
          p.pdt_id AS produto_id,

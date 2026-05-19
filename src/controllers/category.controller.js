@@ -1,31 +1,32 @@
 const pool = require("../config/database");
+const { registerAudit } = require("../services/audit.services")
 
-// listagem de categorias
-exports.getAll = async (req, res) => {
+// LISTAGEM DE CATEGORIAS
+exports.getAllCategory = async (req, res) => {
   try {
-    const [rows] = await pool.execute("SELECT * FROM categorias");
-    res.json(rows);
+    const [categorias] = await pool.execute("SELECT * FROM categorias");
+    res.json(categorias);
   } catch (error) {
     res.status(500).json({ erro: "Erro ao listar categorias" });
   }
 };
 
-// busca categoria por id
-exports.getById = async (req, res) => {
+// BUSCA CATEGORIA POR ID
+exports.getCategoryById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await pool.execute("SELECT * FROM categorias WHERE cat_id = ?", [
+    const [categoria] = await pool.execute("SELECT * FROM categorias WHERE cat_id = ?", [
       id,
     ]);
 
-    if (rows.length === 0) {
+    if (categoria.length === 0) {
       return res.status(404).json({
         mensagem: "Categoria não encontrada",
       });
     }
 
-    res.json(rows[0]);
+    res.json(categoria[0]);
   } catch (error) {
     res.status(500).json({
       erro: "Erro ao buscar categoria",
@@ -33,11 +34,12 @@ exports.getById = async (req, res) => {
   }
 };
 
-// criação de categoria
-exports.create = async (req, res) => {
+// CRIAÇÃO DE CATEGORIA
+exports.createCategory = async (req, res) => {
   try {
     const { cat_nome } = req.body;
-    const nomeCategoria = typeof cat_nome === "string" ? cat_nome.trim() : "";
+    const nomeCategoria = typeof cat_nome === "string" ? cat_nome.trim() : ""; // função .trim() usada para remover espaços em branco no início e no fim de uma string
+    // uso de operador ternário para validação se o valor recebido em cat_nome é uma string
 
     if (!nomeCategoria) {
       return res.status(400).json({
@@ -46,7 +48,7 @@ exports.create = async (req, res) => {
     }
 
     const [categoriaExistente] = await pool.execute(
-      "SELECT cat_id FROM categorias WHERE LOWER(TRIM(cat_nome)) = LOWER(TRIM(?)) LIMIT 1",
+      "SELECT cat_id FROM categorias WHERE LOWER(TRIM(cat_nome)) = LOWER(TRIM(?)) LIMIT 1", // LOWER() = transforma em minúsculo; TRIM() = remove os espaços em branco
       [nomeCategoria],
     );
 
@@ -61,6 +63,16 @@ exports.create = async (req, res) => {
       [nomeCategoria],
     );
 
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Categoria ${nomeCategoria} criada`,
+        "Categorias",
+        result.insertId)
+    } catch (error) {
+      res.status(500).json({ erro: "Erro ao registrar criação de categoria" })
+    }
+
     res.status(201).json({
       mensagem: "Categoria criada com sucesso",
       id: result.insertId,
@@ -70,8 +82,8 @@ exports.create = async (req, res) => {
   }
 };
 
-// atualização de categoria
-exports.update = async (req, res) => {
+// ATUALIZAÇÃO DE CATEGORIAS
+exports.updateCategory = async (req, res) => {
   const { id } = req.params;
   const { cat_nome } = req.body;
 
@@ -85,7 +97,7 @@ exports.update = async (req, res) => {
     }
 
     const [categoriaExistente] = await pool.execute(
-      "SELECT cat_id FROM categorias WHERE cat_id = ? LIMIT 1",
+      "SELECT cat_id, cat_nome FROM categorias WHERE cat_id = ? LIMIT 1",
       [id],
     );
 
@@ -104,10 +116,21 @@ exports.update = async (req, res) => {
       });
     }
 
-    await pool.execute("UPDATE categorias SET cat_nome = ? WHERE cat_id = ?", [
-      nomeCategoria,
-      id,
-    ]);
+    const nomeAnteriorCategoria = categoriaExistente[0].cat_nome;
+
+    const [result] = await pool.execute("UPDATE categorias SET cat_nome = ? WHERE cat_id = ?", 
+      [nomeCategoria, id]
+    );
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Categoria ${nomeAnteriorCategoria} atualizada para ${nomeCategoria}`,
+        "Categorias",
+        result.insertId)
+    } catch (error) {
+      res.status(500).json({ erro: "Erro ao atualizar categoria" })
+    }
 
     res.json({ mensagem: "Categoria atualizada com sucesso" });
   } catch (error) {
@@ -134,16 +157,34 @@ exports.update = async (req, res) => {
   }
 };*/
 
-exports.delete = async (req, res) => {
+exports.deleteCategory = async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [nome] = await pool.execute("SELECT cat_nome FROM categorias WHERE cat_id = ? LIMIT 1", [id])
+
+    if (nome.length === 0) {
+      return res.status(500).json({ erro: "Categoria não encontrada" })
+    }
+
+    const nomeCategoria = nome[0].cat_nome;
+
     const [result] = await pool.execute("DELETE FROM categorias WHERE cat_id = ?", [
       id,
     ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ mensagem: "Categoria não encontrada" });
+    }
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Categoria ${nomeCategoria} deletada`,
+        "Categorias",
+        result.insertId)
+    } catch (error) {
+      res.status(500).json({ erro: "Erro ao deletar categoria" })
     }
 
     res.json({ mensagem: "Categoria removida com sucesso" });

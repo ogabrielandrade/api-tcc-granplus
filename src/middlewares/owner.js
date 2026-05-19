@@ -1,4 +1,4 @@
-// Middleware para verificar se é o próprio usuário ou administrador
+// Middleware para verificar se é usuário ou administrador
 const requireOwnerOrAdmin = (req, res, next) => {
   // Este middleware deve vir DEPOIS do authenticateToken
   if (!req.user) {
@@ -13,7 +13,7 @@ const requireOwnerOrAdmin = (req, res, next) => {
 
   // Permitir se for admin OU se for o próprio usuário
   if (userLevel === 'admin' || userId === loggedUserId) {
-    return next();
+    return next(); // avança para o próximo midlleware
   }
 
   res.status(403).json({ 

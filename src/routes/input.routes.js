@@ -7,7 +7,7 @@ const requireAdmin = require("../middlewares/requireAdmin");
 router.use(authenticateToken);
 
 // Rotas para Entrada
-router.get("/", inputController.getAllInputs); 
+router.get("/", inputController.getAllInputs);  
 router.post("/", inputController.registerInput); 
 
 // ROTAS GERENCIAIS (Apenas Administradores)

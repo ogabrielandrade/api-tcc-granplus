@@ -3,11 +3,19 @@ const { registerAudit } = require("../services/audit.services");
 
 const toNumber = (value) => Number(value || 0);
 
+// formatar data
 const formatDateKey = (value) => {
+  //  Tenta criar o objeto de data                                         // TENTAR USAR ESSA ALTERNATIVA E TESTAR
+  //const date = new Date(value);
+
+  //  Verifica se a data é válida e retorna o formato AAAA-MM-DD ou null
+  //return !isNaN(date) ? date.toISOString().slice(0, 10) : null;
+
   if (!value) return null;
 
   if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
+    // verifica se value foi criado a partir do construtor de date
+    return value.toISOString().slice(0, 10); // se value for uma data, converte para o modelo ISO (AAAA-MM-DD)
   }
 
   const parsed = new Date(value);
@@ -17,18 +25,18 @@ const formatDateKey = (value) => {
 };
 
 const buildLotKey = (lote, validade) =>
-  `${lote ?? "sem-lote"}|${formatDateKey(validade) ?? "sem-validade"}`;
+  `${lote ?? "sem-lote"}|${formatDateKey(validade) ?? "sem-validade"}`; // operador de coalescência nula: define valores padrões após o ??
 
 const parseLotsFromJustification = (justificationText) => {
   if (!justificationText) return [];
 
-  const text = String(justificationText);
+  const text = String(justificationText); // transformando em string garante que possamos usar indexOf sem quebrar a aplicação
   const marker = "| Lotes:";
-  const markerIndex = text.indexOf(marker);
+  const markerIndex = text.indexOf(marker); // localiza ponto específico da String 'text'
 
   if (markerIndex === -1) return [];
 
-  const lotesTexto = text.slice(markerIndex + marker.length).trim();
+  const lotesTexto = text.slice(markerIndex + marker.length).trim(); // pega somente o valor do lote após o marcador "| Lotes:"
   if (!lotesTexto) return [];
 
   return lotesTexto
@@ -43,7 +51,7 @@ const parseLotsFromJustification = (justificationText) => {
       if (!matched) return null;
 
       const loteRaw = matched[1]?.trim();
-      const quantidadeRaw = matched[2]?.replace(",", ".");
+      const quantidadeRaw = matched[2]?.replace(",", "."); // substitui a vírgula pelo ponto (modelo americano que o JS entende) apenas na primeira ocaisão de truthy. Se quiséssemos que todas as ocasiões de vírgula fossem substituídas por ponto, teríamos que usar Regex (/,/g)
       const validadeRaw = matched[3] || null;
       const quantidade = toNumber(quantidadeRaw);
 
@@ -55,7 +63,7 @@ const parseLotsFromJustification = (justificationText) => {
         quantidade,
       };
     })
-    .filter(Boolean);
+    .filter(Boolean); // percorre o array e só deixa passar o que for "verdadeiro"
 };
 
 const getEstimatedAvailableLots = async (pdtId) => {
@@ -198,15 +206,16 @@ const getEstimatedAvailableLots = async (pdtId) => {
 
 const getAvailableLots = async (req, res) => {
   try {
-    const pdtId = Number(req.query.pdt_id);
+    // const pdtId = Number(req.query.pdt_id); ************** desativei essa função, caso seja necessário, ativá-la
+    const { id } = req.params;
 
-    if (!pdtId) {
+    if (!id) {
       return res
         .status(400)
         .json({ erro: "Informe o pdt_id para listar lotes" });
     }
 
-    const disponibilidade = await getEstimatedAvailableLots(pdtId);
+    const disponibilidade = await getEstimatedAvailableLots(id);
 
     if (!disponibilidade) {
       return res.status(404).json({ erro: "Produto não encontrado" });
@@ -223,6 +232,8 @@ const getAvailableLots = async (req, res) => {
   }
 };
 
+
+// REGISTRAR SAÍDAS
 const registerExit = async (req, res) => {
   try {
     const {
@@ -241,7 +252,7 @@ const registerExit = async (req, res) => {
         .json({ erro: "Produto e quantidade são obrigatórios" });
     }
 
-    // 1. Busca o produto e estoque atual consolidado.
+    // busca o produto e estoque atual consolidado.
     const [produtoRows] = await pool.execute(
       `SELECT pdt_id, pdt_estoque_atual
        FROM produto
@@ -404,7 +415,7 @@ const registerExit = async (req, res) => {
     }
 
     // 4. Registrar a saída
-    // ⚡ AQUI A MÁGICA ACONTECE: O INSERT dispara a Trigger no banco,
+    // O INSERT dispara a Trigger no banco,
     // que vai lá na tabela 'produto' e subtrai a quantidade do 'pdt_estoque_atual'.
     const lotesResumo = lotesSelecionados
       .map((lote) => {
