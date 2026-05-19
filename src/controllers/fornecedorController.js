@@ -84,7 +84,19 @@ exports.create = async (req, res) => {
     const complemento = compNormalizado === "" ? null : compNormalizado;
 
     // Validação de campos em branco (Complemento não entra aqui)
+    console.log("Fornecedor.create - entrando na validação obrigatória");
     if (!nome || !documento || !telefone || !cep || !logradouro || !numero || !bairro || !cidade || !estado) {
+      console.warn("Fornecedor.create - campos obrigatórios ausentes", {
+        nome,
+        documento,
+        telefone,
+        cep,
+        logradouro,
+        numero,
+        bairro,
+        cidade,
+        estado,
+      });
       return res.status(400).json({
         erro: "Todos os campos obrigatórios devem ser preenchidos",
       });
@@ -116,7 +128,7 @@ exports.create = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [nome, documento, cep, logradouro, numero, complemento, bairro, cidade, estado, telefone, email],
     );
-
+    
     res.status(201).json({
       mensagem: "Fornecedor criado com sucesso",
       id: result.insertId,
