@@ -170,7 +170,18 @@ exports.createSupplier = async (req, res) => {
         email,
       ],
     );
-    
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Fornecedor ${nome} criado`,
+        "fornecedor",
+        result.insertId,
+      );
+    } catch (error) {
+      console.error("Erro ao criar fornecedor", error);
+    }
+
     res.status(201).json({
       mensagem: "Fornecedor criado com sucesso",
       id: result.insertId,
