@@ -6,7 +6,7 @@ const requireAdmin = require("../middlewares/requireAdmin");
 
 router.use(authenticateToken);
 
-router.get("/", productController.listProducts); // '/produtos' listar todos os produtos
+router.get("/", productController.listAllProducts); // '/produtos' listar todos os produtos
 router.get("/historico/:id", productController.historicalMoviments); // '/produtos/movimentacoes/id' histórico de movimentações por id
 router.post("/", productController.createProduct);
 router.put("/:id", productController.updateProduct); // '/produtos/id' atualizar produto 
