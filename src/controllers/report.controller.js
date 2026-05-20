@@ -159,30 +159,75 @@ const getRelatorioDinamico = async (req, res) => {
           WHERE a.aud_data BETWEEN ? AND ?
           ORDER BY a.aud_data DESC, a.aud_time DESC
         `;
+        // Como aud_data não tem hora, passamos a data limpa!
         queryParams.push(startDate, endDate);
         break;
 
       case "entradas":
         if (!startDate || !endDate) return res.status(400).json({ erro: "Datas obrigatórias para este relatório." });
+        
         query = `
-          SELECT p.pdt_nome, ep.ent_prod_qtde AS quantidade, ent_data AS data 
+          SELECT 
+            COALESCE(p.pdt_nome, 'Produto Excluído') AS pdt_nome, 
+            ep.ent_prod_qtde AS quantidade, 
+            e.ent_valor_compra AS valor_total,
+            e.ent_data AS data,
+            
+            -- Subconsulta para pegar o nome do usuário que fez a entrada, mesmo que o produto tenha sido excluído depois da entrada. Se não encontrar, mostra "Sistema". (Subconsulta otimizada para evitar JOINs desnecessários)
+            COALESCE((
+              SELECT u.user_nome 
+              FROM auditoria a 
+              JOIN usuarios u ON a.user_id = u.user_id 
+              -- Ajustado para buscar a palavra 'entrada' dentro da coluna aud_acao
+              WHERE a.aud_id_evento = e.ent_id AND a.aud_acao LIKE '%entrada%' 
+              LIMIT 1
+            ), 'Sistema') AS usuario
+            
           FROM entrada_produtos ep
-          JOIN produto p ON ep.pdt_id = p.pdt_id
-          WHERE ent_data BETWEEN ? AND ?
-          ORDER BY ent_data DESC
+          
+          -- 1º JOIN: Pega a data e o valor total da entrada, mesmo que o produto tenha sido excluído depois da entrada
+          JOIN entrada e ON ep.ent_id = e.ent_id
+
+          -- 2º JOIN: Pega o nome do produto, mesmo que ele tenha sido excluído depois da entrada
+          LEFT JOIN produto p ON ep.pdt_id = p.pdt_id
+
+          WHERE DATE(e.ent_data) BETWEEN ? AND ?
+          ORDER BY e.ent_data DESC
         `;
         queryParams.push(startDate, endDate);
         break;
 
       case "saidas":
         if (!startDate || !endDate) return res.status(400).json({ erro: "Datas obrigatórias para este relatório." });
+        
         query = `
-          SELECT p.pdt_nome, sp.lcl_qtde AS quantidade, lcl_data_saida AS data 
+          SELECT 
+            -- O nome do produto, mesmo que ele tenha sido excluído depois da saída. Se o produto tiver sido excluído, mostra "Produto Excluído" para não perder a referência da saída.
+            COALESCE(p.pdt_nome, 'Produto Excluído') AS pdt_nome, 
+            sp.lcl_qtde AS quantidade, 
+            sp.lcl_destino AS destino, 
+            sp.lcl_data_saida AS data,
+            
+            -- Subconsulta para pegar o nome do usuário que fez a saída, mesmo que o produto tenha sido excluído depois da saída. Se não encontrar, mostra "Sistema". (Subconsulta otimizada para evitar JOINs desnecessários) 
+            COALESCE((
+              SELECT u.user_nome 
+              FROM auditoria a 
+              JOIN usuarios u ON a.user_id = u.user_id 
+              -- Ajustado para buscar a palavra 'saida' ou 'saída' dentro da coluna aud_acao
+              WHERE a.aud_id_evento = sp.sai_id AND (a.aud_acao LIKE '%saida%' OR a.aud_acao LIKE '%saída%')
+              LIMIT 1
+            ), 'Sistema') AS usuario
+            
           FROM saida_produtos sp
-          JOIN localizacao_produtos lp ON sp.lcl_id = lp.lcl_id
-          JOIN produto p ON lp.pdt_id = p.pdt_id
-          WHERE sp.sai_data BETWEEN ? AND ?
-          ORDER BY sp.sai_data DESC
+          
+          -- 1º JOIN: Pega a data e o destino da saída, mesmo que o produto tenha sido excluído depois da saída
+          LEFT JOIN localizacao_produtos lp ON sp.lcl_id = lp.lcl_id
+          
+          -- 2º JOIN: Pega o nome do produto, mesmo que ele tenha sido excluído depois da saída
+          LEFT JOIN produto p ON lp.pdt_id = p.pdt_id
+          
+          WHERE DATE(sp.lcl_data_saida) BETWEEN ? AND ?
+          ORDER BY sp.lcl_data_saida DESC
         `;
         queryParams.push(startDate, endDate);
         break;
