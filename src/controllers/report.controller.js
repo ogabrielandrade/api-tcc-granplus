@@ -279,10 +279,33 @@ const getRelatorioDinamico = async (req, res) => {
   }
 };
 
+// Função para listar top fornecedores por valor total comprado
+const getTopSuppliersBySpend = async (req, res) => {
+  try {
+    const [rows] = await pool.execute(`
+      SELECT
+        f.fncd_id,
+        COALESCE(f.fncd_nome, 'Fornecedor nao informado') AS fncd_nome,
+        COALESCE(SUM(e.ent_valor_compra), 0) AS total_gasto
+      FROM entrada e
+      LEFT JOIN fornecedor f ON e.fncd_id = f.fncd_id
+      GROUP BY f.fncd_id, f.fncd_nome
+      ORDER BY total_gasto DESC
+      LIMIT 5
+    `);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Erro ao listar top fornecedores:", error);
+    res.status(500).json({ erro: "Erro ao listar top fornecedores" });
+  }
+};
+
 // Exporta os controllers para uso nas rotas
 module.exports = { 
   getMoreMovedProducts, 
   minimumStock, 
   getAuditReports, 
-  getRelatorioDinamico // A nova função foi adicionada aqui
+  getRelatorioDinamico, // A nova função foi adicionada aqui
+  getTopSuppliersBySpend
 };

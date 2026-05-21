@@ -38,6 +38,7 @@ exports.getAllUsers = async (req, res) => {
       `SELECT
         user_id,
         user_nome,
+        user_email,
         user_nivel_acesso,
         user_ativo
         FROM usuarios`,
@@ -65,6 +66,7 @@ exports.getUserById = async (req, res) => {
         SELECT
             user_id,
             user_nome,
+            user_email,
             user_nivel_acesso,
             user_ativo
         FROM usuarios
