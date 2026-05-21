@@ -88,7 +88,6 @@ exports.createSupplier = async (req, res) => {
 
     const email = emailNormalizado === "" ? null : emailNormalizado;
 
-    // Normalização dos dados de endereço
     const cep = typeof fncd_cep === "string" ? fncd_cep.trim() : "";
 
     const logradouro =
@@ -131,7 +130,7 @@ exports.createSupplier = async (req, res) => {
       });
     }
 
-    // Validação do CPF/CNPJ
+    // Validação do CPF/CNPJ (Agora garantido que são só números limpos)
     if (!/^\d{11}$|^\d{14}$/.test(documento)) {
       // Regex
       return res.status(400).json({
@@ -139,19 +138,15 @@ exports.createSupplier = async (req, res) => {
       });
     }
 
-    // Verifica se já existe fornecedor com este documento
     const [fornecedorPorDocumento] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_documento = ? LIMIT 1",
       [documento],
     );
 
     if (fornecedorPorDocumento.length > 0) {
-      return res.status(409).json({
-        erro: "Fornecedor já cadastrado com este CPF/CNPJ",
-      });
+      return res.status(409).json({ erro: "Fornecedor já cadastrado com este CPF/CNPJ" });
     }
 
-    // Inserção na base de dados com as novas colunas
     const [result] = await pool.execute(
       `INSERT INTO fornecedor
       (fncd_nome, fncd_documento, fncd_cep, fncd_logradouro, fncd_numero, fncd_complemento, fncd_bairro, fncd_cidade, fncd_estado, fncd_tel, fncd_email)
@@ -263,12 +258,9 @@ exports.updateSupplier = async (req, res) => {
     }
 
     if (!/^\d{11}$|^\d{14}$/.test(documento)) {
-      return res.status(400).json({
-        erro: "CPF/CNPJ deve conter apenas números e ter 11 ou 14 dígitos",
-      });
+      return res.status(400).json({ erro: "CPF/CNPJ deve ter 11 ou 14 dígitos" });
     }
 
-    // Verifica se o fornecedor existe
     const [fornecedorExistente] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_id = ? LIMIT 1",
       [id],
@@ -278,32 +270,18 @@ exports.updateSupplier = async (req, res) => {
       return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
     }
 
-    // Verifica se já existe outro fornecedor com o mesmo documento
     const [fornecedorPorDocumento] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_documento = ? AND fncd_id <> ? LIMIT 1",
       [documento, id],
     );
 
     if (fornecedorPorDocumento.length > 0) {
-      return res.status(409).json({
-        erro: "Já existe fornecedor com este CPF/CNPJ",
-      });
+      return res.status(409).json({ erro: "Já existe fornecedor com este CPF/CNPJ" });
     }
 
-    // Atualização com os novos campos
     const [result] = await pool.execute(
       `UPDATE fornecedor SET
-      fncd_nome = ?,
-      fncd_documento = ?,
-      fncd_cep = ?,
-      fncd_logradouro = ?,
-      fncd_numero = ?,
-      fncd_complemento = ?,
-      fncd_bairro = ?,
-      fncd_cidade = ?,
-      fncd_estado = ?,
-      fncd_tel = ?,
-      fncd_email = ?
+      fncd_nome = ?, fncd_documento = ?, fncd_cep = ?, fncd_logradouro = ?, fncd_numero = ?, fncd_complemento = ?, fncd_bairro = ?, fncd_cidade = ?, fncd_estado = ?, fncd_tel = ?, fncd_email = ?
       WHERE fncd_id = ?`,
       [
         nome,
