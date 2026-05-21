@@ -90,13 +90,14 @@ exports.getUserById = async (req, res) => {
 
 // CRIAR NOVO USUARIO
 exports.createUser = async (req, res) => {
-  const { user_nome, user_senha, user_nivel_acesso } = req.body;
+  const { user_nome, user_senha, user_nivel_acesso, user_email } = req.body;
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
+  const emailNormalizado = String(user_email || "").trim().toLowerCase();
 
   // validação de entrada: garante que todos os dados obrigatórios foram enviados
-  if (!user_nome || !user_senha || !user_nivel_acesso) {
+  if (!user_nome || !user_senha || !user_nivel_acesso || !emailNormalizado) {
     return res.status(400).json({
-      erro: "Nome, senha e nível de acesso são obrigatórios",
+      erro: "Nome, email, senha e nível de acesso são obrigatórios",
     });
   }
 
@@ -117,15 +118,25 @@ exports.createUser = async (req, res) => {
       return res.status(409).json({ erro: "Usuário já existe" });
     }
 
+    // verificar se o email já está em uso
+    const [emailExiste] = await pool.execute(
+      `SELECT user_id FROM usuarios WHERE user_email = ?`,
+      [emailNormalizado],
+    );
+
+    if (emailExiste.length > 0) {
+      return res.status(409).json({ erro: "Email já cadastrado" });
+    }
+
     // criptografar senha (Hash)
     const senhaHash = await passwordWithHash(user_senha);
     // const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // inserir no banco
     const [result] = await pool.execute(
-      `INSERT INTO usuarios (user_nome, user_senha, user_nivel_acesso)
-       VALUES (?, ?, ?)`,
-      [user_nome, senhaHash, nivelAcessoNormalizado],
+      `INSERT INTO usuarios (user_nome, user_email, user_senha, user_nivel_acesso)
+       VALUES (?, ?, ?, ?)`,
+      [user_nome, emailNormalizado, senhaHash, nivelAcessoNormalizado],
     );
 
     try {
@@ -147,6 +158,7 @@ exports.createUser = async (req, res) => {
       usuario: {
         user_id: result.insertId,
         user_nome,
+        user_email: emailNormalizado,
         user_nivel_acesso: nivelAcessoNormalizado,
       },
     });
