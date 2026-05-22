@@ -364,7 +364,7 @@ exports.deleteSupplier = async (req, res) => {
       // Usando o 'id' ao invés de result.insertId
       await registerAudit(
         req.user.user_id,
-        `Fornecedor ${nomeFornecedor} inativado (soft delete)`,
+        `Fornecedor ${nomeFornecedor} inativado`,
         "fornecedor",
         id
       );
