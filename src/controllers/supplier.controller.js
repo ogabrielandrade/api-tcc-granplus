@@ -1,7 +1,7 @@
 const pool = require("../config/database");
 const { registerAudit } = require("../services/audit.services");
 
-// LISTAGEM DE FORNECEDORES
+/// LISTAGEM DE FORNECEDORES (inclui ativos e inativos)
 exports.getAllSupplier = async (req, res) => {
   try {
     const [rows] = await pool.execute(`SELECT
@@ -13,14 +13,15 @@ exports.getAllSupplier = async (req, res) => {
           ' - ', f.fncd_cidade, '/', f.fncd_estado,
           ' - CEP: ', f.fncd_cep
         ) AS fncd_endereco
-      FROM fornecedor f`);
+      FROM fornecedor f
+      `);
     res.json(rows);
   } catch (error) {
     res.status(500).json({ erro: "Erro ao listar fornecedores", error });
   }
 };
 
-// BUSCA FORNECEDOR POR ID
+// BUSCA FORNECEDOR POR ID (inclui ativos e inativos)
 exports.getSupplierById = async (req, res) => {
   const { id } = req.params;
 
@@ -37,13 +38,13 @@ exports.getSupplierById = async (req, res) => {
             ' - CEP: ', f.fncd_cep
           ) AS fncd_endereco
         FROM fornecedor f
-        WHERE f.fncd_id = ?
+          WHERE f.fncd_id = ?
       `,
       [id],
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
+      return res.status(404).json({ mensagem: "Fornecedor não encontrado ou inativo" });
     }
 
     res.json(rows[0]);
@@ -66,6 +67,7 @@ exports.createSupplier = async (req, res) => {
     fncd_bairro,
     fncd_cidade,
     fncd_estado,
+    fncd_ativo,
   } = req.body;
 
   try {
@@ -100,6 +102,9 @@ exports.createSupplier = async (req, res) => {
     const cidade = typeof fncd_cidade === "string" ? fncd_cidade.trim() : "";
 
     const estado = typeof fncd_estado === "string" ? fncd_estado.trim() : "";
+
+    const ativoNormalizado =
+      fncd_ativo !== undefined && fncd_ativo !== null ? Number(fncd_ativo) : 1;
 
     // Complemento é opcional (pode ser nulo)
     const compNormalizado =
@@ -136,6 +141,10 @@ exports.createSupplier = async (req, res) => {
       return res.status(400).json({
         erro: "CPF/CNPJ deve conter apenas números e ter 11 ou 14 dígitos",
       });
+    }
+
+    if (![0, 1].includes(ativoNormalizado)) {
+      return res.status(400).json({ erro: "Status inválido. Use 0 ou 1" });
     }
 
     const [fornecedorPorDocumento] = await pool.execute(
@@ -203,6 +212,7 @@ exports.updateSupplier = async (req, res) => {
     fncd_bairro,
     fncd_cidade,
     fncd_estado,
+    fncd_ativo,
   } = req.body;
 
   try {
@@ -230,6 +240,8 @@ exports.updateSupplier = async (req, res) => {
     const bairro = typeof fncd_bairro === "string" ? fncd_bairro.trim() : "";
     const cidade = typeof fncd_cidade === "string" ? fncd_cidade.trim() : "";
     const estado = typeof fncd_estado === "string" ? fncd_estado.trim() : "";
+    const ativoNormalizado =
+      fncd_ativo !== undefined && fncd_ativo !== null ? Number(fncd_ativo) : 1;
 
     // Complemento é opcional
     const compNormalizado =
@@ -261,6 +273,10 @@ exports.updateSupplier = async (req, res) => {
       return res.status(400).json({ erro: "CPF/CNPJ deve ter 11 ou 14 dígitos" });
     }
 
+    if (![0, 1].includes(ativoNormalizado)) {
+      return res.status(400).json({ erro: "Status inválido. Use 0 ou 1" });
+    }
+
     const [fornecedorExistente] = await pool.execute(
       "SELECT fncd_id FROM fornecedor WHERE fncd_id = ? LIMIT 1",
       [id],
@@ -281,7 +297,7 @@ exports.updateSupplier = async (req, res) => {
 
     const [result] = await pool.execute(
       `UPDATE fornecedor SET
-      fncd_nome = ?, fncd_documento = ?, fncd_cep = ?, fncd_logradouro = ?, fncd_numero = ?, fncd_complemento = ?, fncd_bairro = ?, fncd_cidade = ?, fncd_estado = ?, fncd_tel = ?, fncd_email = ?
+      fncd_nome = ?, fncd_documento = ?, fncd_cep = ?, fncd_logradouro = ?, fncd_numero = ?, fncd_complemento = ?, fncd_bairro = ?, fncd_cidade = ?, fncd_estado = ?, fncd_tel = ?, fncd_email = ?, fncd_ativo = ?
       WHERE fncd_id = ?`,
       [
         nome,
@@ -295,6 +311,7 @@ exports.updateSupplier = async (req, res) => {
         estado,
         telefone,
         email,
+        ativoNormalizado,
         id,
       ],
     );
@@ -317,47 +334,48 @@ exports.updateSupplier = async (req, res) => {
   }
 };
 
-// DELETAR FORNECEDOR
+// DELETAR FORNECEDOR (Agora com SOFT DELETE)
 exports.deleteSupplier = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [nome] = await pool.execute(
-      "SELECT fncd_nome FROM fornecedor WHERE fncd_id = ?",
+    const [fornecedorBusca] = await pool.execute(
+      "SELECT fncd_nome, fncd_ativo FROM fornecedor WHERE fncd_id = ?",
       [id],
     );
 
-    const nomeFornecedor = nome[0].fncd_nome;
+    if (fornecedorBusca.length === 0) {
+      return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
+    }
 
-    const [result] = await pool.execute(
-      "DELETE FROM fornecedor WHERE fncd_id = ?",
+    const { fncd_nome: nomeFornecedor, fncd_ativo: isAtivo } = fornecedorBusca[0];
+
+    if (isAtivo === 0) {
+      return res.status(400).json({ erro: "Fornecedor já está inativo." });
+    }
+
+    // Fazendo o Soft Delete
+    await pool.execute(
+      "UPDATE fornecedor SET fncd_ativo = 0 WHERE fncd_id = ?",
       [id],
     );
 
     try {
+      // Usando o 'id' ao invés de result.insertId
       await registerAudit(
         req.user.user_id,
-        `Fornecedor ${nomeFornecedor} deletado`,
+        `Fornecedor ${nomeFornecedor} inativado (soft delete)`,
         "fornecedor",
-        result.insertId,
+        id
       );
     } catch (error) {
-      console.error("Erro ao deletar fornecedor", error);
+      console.error("Erro ao registrar auditoria", error);
     }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
-    }
-
-    res.json({ mensagem: "Fornecedor removido com sucesso" });
+    res.json({ mensagem: "Fornecedor inativado com sucesso" });
   } catch (error) {
-    if (error.code === "ER_ROW_IS_REFERENCED_2" || error.errno === 1451) {
-      return res.status(400).json({
-        erro: "Não é possível excluir o fornecedor porque existem entradas vinculadas a ele no estoque.",
-      });
-    }
-    res
-      .status(500)
-      .json({ erro: "Erro ao remover fornecedor", detalhe: error.message });
+    // Esse bloco do ER_ROW_IS_REFERENCED_2 agora raramente ou nunca vai ser chamado,
+    // já que o UPDATE não conflita com Foreign Keys!
+    res.status(500).json({ erro: "Erro ao inativar fornecedor", detalhe: error.message });
   }
 };
