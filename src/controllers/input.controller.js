@@ -195,18 +195,14 @@ const updateInput = async (req, res) => {
       }
     }
 
-    await connection.commit();
+    await registerAudit(
+      req.user?.user_id || 1,
+      `Atualização do produto ${id}`,
+      "entrada",
+      id,
+    );
 
-    try {
-      await registerAudit(
-        req.user?.user_id || 1,
-        `Atualização do produto ${id}`,
-        "entrada",
-        id,
-      );
-    } catch (e) {
-      console.error("Aviso: Erro não crítico ao salvar auditoria", e);
-    }
+    await connection.commit();
     res.status(200).json({ mensagem: "Entrada atualizada com sucesso" });
   } catch (error) {
     await connection.rollback();
@@ -251,18 +247,14 @@ const deleteInput = async (req, res) => {
 
     await connection.execute(`DELETE FROM entrada WHERE ent_id = ?`, [id]);
 
-    await connection.commit();
+    await registerAudit(
+      req.user?.user_id || 1,
+      `Entrada ${id} excluída com os produtos: ${descricaoProdutos}`,
+      "entrada",
+      id,
+    );
 
-    try {
-      await registerAudit(
-        req.user?.user_id || 1,
-        `Entrada ${id} excluída com os produtos: ${descricaoProdutos}`,
-        "entrada",
-        id,
-      );
-    } catch (e) {
-      console.error("Aviso: Erro não crítico ao salvar auditoria", e);
-    }
+    await connection.commit();
 
     res.status(200).json({ mensagem: "Entrada excluida com sucesso." });
   } catch (error) {
