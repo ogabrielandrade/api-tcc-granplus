@@ -326,7 +326,7 @@ const registerExit = async (req, res) => {
       });
     }
 
-    // 1.5 Validação de validade - busca produtos com validade expirada ou próxima
+    // Validação de validade - busca produtos com validade expirada ou próxima
     const [validadeRows] = await pool.query(
       `SELECT pdt_validade, ent_prod_qtde
        FROM entrada_produtos
@@ -367,7 +367,7 @@ const registerExit = async (req, res) => {
       }
     }
 
-    // 2. Busca vínculo do produto na localização escolhida.
+    // Busca vínculo do produto na localização escolhida.
     const [produtoLocal] = await pool.execute(
       `SELECT lp.lcl_id
        FROM localizacao_produtos lp
@@ -406,7 +406,7 @@ const registerExit = async (req, res) => {
       lcl_id = novoVinculo.insertId;
     }
 
-    // 3. Validação de estoque
+    // Validação de estoque
     if (Number(lcl_qtde) > estoqueAtual) {
       return res.status(400).json({
         erro: "Estoque insuficiente",
@@ -414,7 +414,7 @@ const registerExit = async (req, res) => {
       });
     }
 
-    // 4. Registrar a saída
+    // Registrar a saída
     // O INSERT dispara a Trigger no banco,
     // que vai lá na tabela 'produto' e subtrai a quantidade do 'pdt_estoque_atual'.
     const lotesResumo = lotesSelecionados
@@ -443,10 +443,10 @@ const registerExit = async (req, res) => {
       ],
     );
 
-    // 5. Registrar auditoria
+    //  Registrar auditoria
     await registerAudit(
       req.user.user_id,
-      "Atualização de estoque - saída",
+      `Saída no produto ${pdt_id}`,
       "saida_produtos",
       result.insertId,
     );

@@ -1,6 +1,8 @@
 const pool = require("../config/database");
 const { registerAudit } = require("../services/audit.services");
-const {updateColunaEstoqueAtual,} = require("../services/updateColunaEstoqueAtual");
+const {
+  updateColunaEstoqueAtual,
+} = require("../services/updateColunaEstoqueAtual");
 
 // REGISTRAR PRODUTO (ENTRADA)
 const registerInput = async (req, res) => {
@@ -22,15 +24,18 @@ const registerInput = async (req, res) => {
     }
 
     //validação de array e dados
-    if (!Array.isArray(produtos) || produtos.length === 0) { // verifica se 'produtos' realmente é um array e se o comprimento é igual a 0
+    if (!Array.isArray(produtos) || produtos.length === 0) {
+      // verifica se 'produtos' realmente é um array e se o comprimento é igual a 0
       return res.status(400).json({
-        erro: "produtos deve conter ao menos um item"
+        erro: "produtos deve conter ao menos um item",
       });
     }
 
     // validação de integridade (verifica se os dados de cada item estão completos)
-    for (const [index, product] of produtos.entries()) { // cria duas constantes, index e product, que recebrão os valores do método .entries(); sabendo que o método .entries() retorna o item e a posição de um array; por saber que o metodo devolve esses resultados, usamos desestruturação e atribuímos os valores do método nas duas constantes declaradas
-      if (!product?.pdt_id || !product?.quantidade) { //(?. = optional chaining) se product.pdt_id e product.quantidade forem null, imprime undefined em vez de dar erro.
+    for (const [index, product] of produtos.entries()) {
+      // cria duas constantes, index e product, que recebrão os valores do método .entries(); sabendo que o método .entries() retorna o item e a posição de um array; por saber que o metodo devolve esses resultados, usamos desestruturação e atribuímos os valores do método nas duas constantes declaradas
+      if (!product?.pdt_id || !product?.quantidade) {
+        //(?. = optional chaining) se product.pdt_id e product.quantidade forem null, imprime undefined em vez de dar erro.
         return res.status(400).json({
           erro: `Produto na posição ${index} sem ID ou quantidade`,
         });
@@ -59,7 +64,7 @@ const registerInput = async (req, res) => {
     // Começo da transação: garante que ou salva tudo, ou não salva nada
     await connection.beginTransaction();
 
-    // 1. Inserir a "Capa" da Entrada (Nota Fiscal/Registro Geral)
+    // Inserir a "Capa" da Entrada (Nota Fiscal/Registro Geral)
     const [inputResult] = await connection.execute(
       `INSERT INTO entrada 
       (loc_id, fncd_id, ent_data_compra, ent_valor_compra, ent_data)
@@ -72,7 +77,7 @@ const registerInput = async (req, res) => {
     // Correção: Alterado de "saída" para "entrada"
     //await registerAudit(req.user.user_id, "Atualização de estoque - entrada", "entrada", ent_id);
 
-    // 2. Inserir os produtos da entrada
+    // Inserir os produtos da entrada
     for (const product of produtos) {
       await connection.execute(
         `INSERT INTO entrada_produtos
@@ -91,14 +96,14 @@ const registerInput = async (req, res) => {
     }
 
     await updateColunaEstoqueAtual(connection);
-    
-    // 3. Tudo deu certo? Confirma a transação
+
+    // Tudo deu certo? Confirma a transação
     await connection.commit();
 
-    // 4. AGORA SIM: Registra a auditoria com segurança de que a entrada realmente existe
+    // Registra a auditoria com segurança de que a entrada realmente existe
     await registerAudit(
       req.user.user_id,
-      "Atualização de estoque - entrada",
+      `Entrada no produto ${produtos.pdt_id}`,
       "entrada",
       ent_id,
     );
@@ -195,7 +200,7 @@ const updateInput = async (req, res) => {
     try {
       await registerAudit(
         req.user?.user_id || 1,
-        "Atualizacao de estoque (edicao) - entrada",
+        `Atualização do produto ${id}`,
         "entrada",
         id,
       );
@@ -222,6 +227,24 @@ const deleteInput = async (req, res) => {
 
     await connection.beginTransaction();
 
+    const [produtosDaEntrada] = await connection.execute(
+      `SELECT ep.pdt_id, p.pdt_nome, ep.ent_prod_qtde, ep.ent_prod_lote
+       FROM entrada_produtos ep
+       JOIN produto p ON ep.pdt_id = p.pdt_id
+       WHERE ep.ent_id = ?`,
+      [id],
+    );
+
+    const descricaoProdutos =
+      produtosDaEntrada.length > 0
+        ? produtosDaEntrada
+            .map(
+              (produto) =>
+                `${produto.pdt_nome} (qtd: ${produto.ent_prod_qtde}${produto.ent_prod_lote !== null ? `, lote: ${produto.ent_prod_lote}` : ""})`,
+            )
+            .join(", ")
+        : "sem produtos encontrados";
+
     await connection.execute(`DELETE FROM entrada_produtos WHERE ent_id = ?`, [
       id,
     ]);
@@ -233,7 +256,7 @@ const deleteInput = async (req, res) => {
     try {
       await registerAudit(
         req.user?.user_id || 1,
-        "Estorno de estoque (exclusao) - entrada",
+        `Entrada ${id} excluída com os produtos: ${descricaoProdutos}`,
         "entrada",
         id,
       );
