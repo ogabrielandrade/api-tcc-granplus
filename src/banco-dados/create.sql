@@ -7,9 +7,12 @@ USE cbd_tcc_des_125_estoque;
 CREATE TABLE usuarios (
     user_id           INT AUTO_INCREMENT PRIMARY KEY,
     user_nome         VARCHAR(50)   NOT NULL,
+    user_email        VARCHAR(100)  NOT NULL UNIQUE,
     user_senha        VARCHAR(100)   NOT NULL,
     user_nivel_acesso ENUM('admin','user') NOT NULL,
-    user_ativo        TINYINT(1)    NOT NULL DEFAULT 1
+    user_ativo        TINYINT(1)    NOT NULL DEFAULT 1,
+    reset_token       VARCHAR(255) NULL,
+    reset_expires     DATETIME NULL
 ) ENGINE=InnoDB;
 
 -- =========================
@@ -53,7 +56,8 @@ CREATE TABLE fornecedor (
     fncd_cidade      VARCHAR(100) NOT NULL,
     fncd_estado      VARCHAR(2)   NOT NULL,
     fncd_tel         VARCHAR(20)  NOT NULL,
-    fncd_email       VARCHAR(100)
+    fncd_email       VARCHAR(100),
+    fncd_ativo       TINYINT(1)   NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
 -- =========================
@@ -91,6 +95,7 @@ CREATE TABLE produto (
     pdt_descricao      VARCHAR(255),
     pdt_estoque_minimo INT,
     pdt_ativo          TINYINT(1) NOT NULL DEFAULT 1,
+    pdt_estoque_atual  INT NOT NULL DEFAULT 0,
     cat_id             INT        NOT NULL,
     unid_med_id        INT        NOT NULL,
     CONSTRAINT fk_produto_categorias

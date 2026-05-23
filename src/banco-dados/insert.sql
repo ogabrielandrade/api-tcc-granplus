@@ -1,13 +1,13 @@
-USE controle_estoque;
+USE cbd_tcc_des_125_estoque;
 
 -- =============================================
 -- TABELA: usuarios
 -- =============================================
 -- Senhas originais: admin123, estoque123, financeiro123 (hashes bcrypt abaixo)
-INSERT INTO usuarios (user_id, user_nome, user_senha, user_nivel_acesso, user_ativo) VALUES
-(1, 'Administrador', '$2b$10$CKLaJ1uJolMsyyvodMkPRumqjQblnbWY3hC8oxiFe8zUwIZ2j59Nq', 'admin', 1),
-(2, 'João Estoquista', '$2b$10$p.ZQfRdcyvwk1tpCnq4z5u360ySuaZvKjgR4llajJmBv9WJ8ydC.S', 'user', 1),
-(3, 'Maria Financeiro', '$2b$10$HICLujQefsPKNNYnVyjxd.1YkZIqKF2eHqKK291180gbNG./E7S.W', 'user', 1);
+INSERT INTO usuarios (user_id, user_nome, user_email, user_senha, user_nivel_acesso, user_ativo) VALUES
+(1, 'Administrador', 'administrador@granplus.com.br', '$2b$10$CKLaJ1uJolMsyyvodMkPRumqjQblnbWY3hC8oxiFe8zUwIZ2j59Nq', 'admin', 1),
+(2, 'João Estoquista', 'joao.estoquista@granplus.com.br', '$2b$10$p.ZQfRdcyvwk1tpCnq4z5u360ySuaZvKjgR4llajJmBv9WJ8ydC.S', 'user', 1),
+(3, 'Maria Financeiro', 'maria.financeiro@granplus.com.br', '$2b$10$HICLujQefsPKNNYnVyjxd.1YkZIqKF2eHqKK291180gbNG./E7S.W', 'user', 1);
 
 -- =============================================
 -- TABELA: fornecedor
@@ -133,3 +133,21 @@ INSERT INTO auditoria (aud_id, user_id, aud_acao, aud_data, aud_time, aud_tabela
 (3, 2, 'LANÇAMENTO DE SAÍDA',           '2025-11-10', '10:05:00', 'saida_produtos', 1),
 (4, 2, 'LANÇAMENTO DE SAÍDA',           '2025-11-11', '09:35:00', 'saida_produtos', 2),
 (5, 3, 'CONSULTA RELATÓRIO DE ESTOQUE', '2025-11-12', '16:10:00', 'produto',     NULL);
+
+-- =============================================
+-- ATUALIZAÇÃO DO ESTOQUE CONSOLIDADO DO PRODUTO
+-- =============================================
+UPDATE produto p
+SET pdt_estoque_atual =
+	COALESCE((
+		SELECT SUM(ep.ent_prod_qtde)
+		FROM entrada_produtos ep
+		WHERE ep.pdt_id = p.pdt_id
+	), 0)
+	-
+	COALESCE((
+		SELECT SUM(sp.lcl_qtde)
+		FROM saida_produtos sp
+		JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
+		WHERE lp.pdt_id = p.pdt_id
+	), 0);
