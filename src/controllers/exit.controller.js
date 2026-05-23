@@ -24,8 +24,10 @@ const formatDateKey = (value) => {
   return parsed.toISOString().slice(0, 10);
 };
 
-const buildLotKey = (lote, validade) =>
-  `${lote ?? "sem-lote"}|${formatDateKey(validade) ?? "sem-validade"}`; // operador de coalescência nula: define valores padrões após o ??
+const buildLotKey = (lote, validade, locId) =>
+  `${lote ?? "sem-lote"}|${formatDateKey(validade) ?? "sem-validade"}|${
+    locId ?? "sem-localizacao"
+  }`;
 
 const parseLotsFromJustification = (justificationText) => {
   if (!justificationText) return [];
@@ -82,13 +84,18 @@ const getEstimatedAvailableLots = async (pdtId) => {
 
   const [entradaLotes] = await pool.execute(
     `SELECT
+       e.loc_id,
+       l.loc_nome,
        ent_prod_lote AS lote,
        pdt_validade AS validade,
        SUM(ent_prod_qtde) AS quantidade_entrada
-     FROM entrada_produtos
-     WHERE pdt_id = ?
-     GROUP BY ent_prod_lote, pdt_validade
+     FROM entrada_produtos ep
+     JOIN entrada e ON e.ent_id = ep.ent_id
+     JOIN localizacao l ON l.loc_id = e.loc_id
+     WHERE ep.pdt_id = ?
+     GROUP BY e.loc_id, l.loc_nome, ep.ent_prod_lote, ep.pdt_validade
      ORDER BY
+       e.loc_id ASC,
        CASE WHEN pdt_validade IS NULL THEN 1 ELSE 0 END,
        pdt_validade ASC,
        ent_prod_lote ASC`,
@@ -96,6 +103,8 @@ const getEstimatedAvailableLots = async (pdtId) => {
   );
 
   const lotesComEntrada = entradaLotes.map((row) => ({
+    loc_id: row.loc_id,
+    loc_nome: row.loc_nome,
     lote: row.lote === undefined ? null : row.lote,
     validade: formatDateKey(row.validade),
     quantidade_entrada: toNumber(row.quantidade_entrada),
@@ -103,8 +112,10 @@ const getEstimatedAvailableLots = async (pdtId) => {
 
   const disponibilidadePorLote = new Map(
     lotesComEntrada.map((lote) => [
-      buildLotKey(lote.lote, lote.validade),
+      buildLotKey(lote.lote, lote.validade, lote.loc_id),
       {
+        loc_id: lote.loc_id,
+        loc_nome: lote.loc_nome,
         lote: lote.lote,
         validade: lote.validade,
         quantidade_entrada: toNumber(lote.quantidade_entrada),
@@ -114,7 +125,7 @@ const getEstimatedAvailableLots = async (pdtId) => {
   );
 
   const [saidasRows] = await pool.execute(
-    `SELECT sp.lcl_qtde, sp.lcl_justificativa
+    `SELECT sp.lcl_qtde, sp.lcl_justificativa, lp.loc_id
      FROM saida_produtos sp
      JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
      WHERE lp.pdt_id = ?`,
@@ -125,6 +136,7 @@ const getEstimatedAvailableLots = async (pdtId) => {
 
   saidasRows.forEach((saida) => {
     const quantidadeSaida = toNumber(saida.lcl_qtde);
+    const locIdSaida = saida.loc_id ? Number(saida.loc_id) : null;
     const lotesDaSaida = parseLotsFromJustification(saida.lcl_justificativa);
 
     if (!lotesDaSaida.length) {
@@ -135,7 +147,7 @@ const getEstimatedAvailableLots = async (pdtId) => {
     let totalAbatidoNaSaida = 0;
 
     lotesDaSaida.forEach((loteSaida) => {
-      const chave = buildLotKey(loteSaida.lote, loteSaida.validade);
+      const chave = buildLotKey(loteSaida.lote, loteSaida.validade, locIdSaida);
       const loteDisponivel = disponibilidadePorLote.get(chave);
 
       if (!loteDisponivel) return;
@@ -155,37 +167,37 @@ const getEstimatedAvailableLots = async (pdtId) => {
       0,
       quantidadeSaida - totalAbatidoNaSaida,
     );
-    consumoSemLoteDetalhado += restanteSemDetalhe;
+    if (restanteSemDetalhe > 0) {
+      const lotesOrdenados = Array.from(disponibilidadePorLote.values())
+        .filter((lote) => lote.loc_id === locIdSaida)
+        .sort((first, second) => {
+          const firstDate = formatDateKey(first.validade);
+          const secondDate = formatDateKey(second.validade);
+
+          if (!firstDate && !secondDate) return 0;
+          if (!firstDate) return 1;
+          if (!secondDate) return -1;
+
+          return firstDate.localeCompare(secondDate);
+        });
+
+      let consumoRestante = restanteSemDetalhe;
+
+      lotesOrdenados.forEach((lote) => {
+        if (consumoRestante <= 0) return;
+
+        const disponivel = toNumber(lote.quantidade_disponivel);
+        const abatimento = Math.min(disponivel, consumoRestante);
+        lote.quantidade_disponivel = disponivel - abatimento;
+        consumoRestante -= abatimento;
+      });
+    }
   });
-
-  if (consumoSemLoteDetalhado > 0) {
-    const lotesOrdenados = Array.from(disponibilidadePorLote.values()).sort(
-      (first, second) => {
-        const firstDate = formatDateKey(first.validade);
-        const secondDate = formatDateKey(second.validade);
-
-        if (!firstDate && !secondDate) return 0;
-        if (!firstDate) return 1;
-        if (!secondDate) return -1;
-
-        return firstDate.localeCompare(secondDate);
-      },
-    );
-
-    let consumoRestante = consumoSemLoteDetalhado;
-
-    lotesOrdenados.forEach((lote) => {
-      if (consumoRestante <= 0) return;
-
-      const disponivel = toNumber(lote.quantidade_disponivel);
-      const abatimento = Math.min(disponivel, consumoRestante);
-      lote.quantidade_disponivel = disponivel - abatimento;
-      consumoRestante -= abatimento;
-    });
-  }
 
   const lotesDisponiveis = Array.from(disponibilidadePorLote.values())
     .map((lote) => ({
+      loc_id: lote.loc_id,
+      loc_nome: lote.loc_nome,
       lote: lote.lote,
       validade: lote.validade,
       quantidade_disponivel: Number(
@@ -232,8 +244,6 @@ const getAvailableLots = async (req, res) => {
   }
 };
 
-
-// REGISTRAR SAÍDAS
 const registerExit = async (req, res) => {
   try {
     const {
@@ -276,6 +286,22 @@ const registerExit = async (req, res) => {
       ? lotes_selecionados
       : [];
 
+    const locIdsSelecionados = Array.from(
+      new Set(
+        lotesSelecionados
+          .map((lote) => Number(lote.loc_id))
+          .filter((value) => !Number.isNaN(value) && value > 0),
+      ),
+    );
+
+    if (locIdsSelecionados.length > 1) {
+      return res.status(400).json({
+        erro: "Selecione lotes de uma única localização para registrar a saída.",
+      });
+    }
+
+    const locIdEfetivo = loc_id || locIdsSelecionados[0] || null;
+
     if (lotesSelecionados.length === 0) {
       return res.status(400).json({
         erro: "Selecione ao menos um lote para confirmar a saída",
@@ -284,7 +310,7 @@ const registerExit = async (req, res) => {
 
     const lotesDisponiveisPorChave = new Map(
       disponibilidadeLotes.lotes.map((lote) => [
-        buildLotKey(lote.lote, lote.validade),
+        buildLotKey(lote.lote, lote.validade, lote.loc_id),
         lote,
       ]),
     );
@@ -300,7 +326,11 @@ const registerExit = async (req, res) => {
         });
       }
 
-      const chave = buildLotKey(lote.lote ?? null, lote.validade ?? null);
+      const chave = buildLotKey(
+        lote.lote ?? null,
+        lote.validade ?? null,
+        lote.loc_id ?? null,
+      );
       const loteDisponivel = lotesDisponiveisPorChave.get(chave);
 
       if (!loteDisponivel) {
@@ -374,7 +404,7 @@ const registerExit = async (req, res) => {
        WHERE lp.pdt_id = ?
          AND (? IS NULL OR lp.loc_id = ?)
        LIMIT 1`,
-      [pdt_id, loc_id || null, loc_id || null],
+      [pdt_id, locIdEfetivo || null, locIdEfetivo || null],
     );
 
     let lcl_id = null;
@@ -388,7 +418,7 @@ const registerExit = async (req, res) => {
          WHERE (? IS NULL OR loc_id = ?)
          ORDER BY loc_id
          LIMIT 1`,
-        [loc_id || null, loc_id || null],
+        [locIdEfetivo || null, locIdEfetivo || null],
       );
 
       if (locRows.length === 0) {

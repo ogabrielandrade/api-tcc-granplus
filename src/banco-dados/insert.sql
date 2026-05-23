@@ -12,10 +12,23 @@ INSERT INTO usuarios (user_id, user_nome, user_senha, user_nivel_acesso, user_at
 -- =============================================
 -- TABELA: fornecedor
 -- =============================================
-INSERT INTO fornecedor (fncd_id, fncd_nome, fncd_documento, fncd_endereco, fncd_tel, fncd_email) VALUES
-(1, 'Higiene & Limpeza Brasil LTDA', '12345678000190', 'Av. das Indústrias, 1000 - São Paulo/SP', '(11) 4000-1000', 'contato@higienelimpeza.com.br'),
-(2, 'Papelaria Central LTDA',        '22345678000191', 'Rua das Flores, 250 - Campinas/SP',        '(19) 3000-2000', 'vendas@papelariacentral.com.br'),
-(3, 'Distribuidora Bom Sabor LTDA',  '32345678000192', 'Rod. BR-101, Km 200 - Curitiba/PR',        '(41) 3500-3000', 'comercial@bomsabor.com.br');
+INSERT INTO fornecedor (
+	fncd_id,
+	fncd_nome,
+	fncd_documento,
+	fncd_cep,
+	fncd_logradouro,
+	fncd_numero,
+	fncd_complemento,
+	fncd_bairro,
+	fncd_cidade,
+	fncd_estado,
+	fncd_tel,
+	fncd_email
+) VALUES
+(1, 'Higiene & Limpeza Brasil LTDA', '12345678000190', '01001-000', 'Av. das Indústrias', '1000', NULL,      'Centro',          'São Paulo', 'SP', '(11) 4000-1000', 'contato@higienelimpeza.com.br'),
+(2, 'Papelaria Central LTDA',        '22345678000191', '13010-100', 'Rua das Flores',      '250',  'Sala 12', 'Cambuí',          'Campinas',  'SP', '(19) 3000-2000', 'vendas@papelariacentral.com.br'),
+(3, 'Distribuidora Bom Sabor LTDA',  '32345678000192', '80010-000', 'Rod. BR-101',         '200',  'Km 200',  'Jardim América',  'Curitiba',  'PR', '(41) 3500-3000', 'comercial@bomsabor.com.br');
 
 -- =============================================
 -- TABELA: unidade_medida

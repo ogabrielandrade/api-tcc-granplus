@@ -38,6 +38,7 @@ exports.getAllUsers = async (req, res) => {
       `SELECT
         user_id,
         user_nome,
+        user_email,
         user_nivel_acesso,
         user_ativo
         FROM usuarios`,
@@ -65,6 +66,7 @@ exports.getUserById = async (req, res) => {
         SELECT
             user_id,
             user_nome,
+            user_email,
             user_nivel_acesso,
             user_ativo
         FROM usuarios
@@ -88,13 +90,14 @@ exports.getUserById = async (req, res) => {
 
 // CRIAR NOVO USUARIO
 exports.createUser = async (req, res) => {
-  const { user_nome, user_senha, user_nivel_acesso } = req.body;
+  const { user_nome, user_senha, user_nivel_acesso, user_email } = req.body;
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
+  const emailNormalizado = String(user_email || "").trim().toLowerCase();
 
   // validação de entrada: garante que todos os dados obrigatórios foram enviados
-  if (!user_nome || !user_senha || !user_nivel_acesso) {
+  if (!user_nome || !user_senha || !user_nivel_acesso || !emailNormalizado) {
     return res.status(400).json({
-      erro: "Nome, senha e nível de acesso são obrigatórios",
+      erro: "Nome, email, senha e nível de acesso são obrigatórios",
     });
   }
 
@@ -115,15 +118,25 @@ exports.createUser = async (req, res) => {
       return res.status(409).json({ erro: "Usuário já existe" });
     }
 
+    // verificar se o email já está em uso
+    const [emailExiste] = await pool.execute(
+      `SELECT user_id FROM usuarios WHERE user_email = ?`,
+      [emailNormalizado],
+    );
+
+    if (emailExiste.length > 0) {
+      return res.status(409).json({ erro: "Email já cadastrado" });
+    }
+
     // criptografar senha (Hash)
     const senhaHash = await passwordWithHash(user_senha);
     // const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // inserir no banco
     const [result] = await pool.execute(
-      `INSERT INTO usuarios (user_nome, user_senha, user_nivel_acesso)
-       VALUES (?, ?, ?)`,
-      [user_nome, senhaHash, nivelAcessoNormalizado],
+      `INSERT INTO usuarios (user_nome, user_email, user_senha, user_nivel_acesso)
+       VALUES (?, ?, ?, ?)`,
+      [user_nome, emailNormalizado, senhaHash, nivelAcessoNormalizado],
     );
 
     try {
@@ -145,6 +158,7 @@ exports.createUser = async (req, res) => {
       usuario: {
         user_id: result.insertId,
         user_nome,
+        user_email: emailNormalizado,
         user_nivel_acesso: nivelAcessoNormalizado,
       },
     });
@@ -159,7 +173,7 @@ exports.createUser = async (req, res) => {
 // ATUALIZAR USUÁRIO
 exports.updateUser = async (req, res) => {
   const { id } = req.params;
-  const { user_nome, user_nivel_acesso, user_ativo, user_senha } = req.body;
+  const { user_nome, user_nivel_acesso, user_ativo, user_senha, user_email } = req.body;
 
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
   // const ativoNormalizado = Number(user_ativo);
@@ -235,6 +249,12 @@ exports.updateUser = async (req, res) => {
       nivelAcessoNormalizado,
       ativoNormalizado,
     ];
+    
+    // se o email foi preenchido, adiciona no UPDATE
+    if (user_email && user_email.trim() !== "") {
+      updateQuery += `, user_email = ?`;
+      params.push(user_email);
+    }
 
     // Se a senha foi preenchida, adiciona no UPDATE
     if (user_senha && user_senha.trim() !== "") {
@@ -382,7 +402,7 @@ exports.loginUser = async (req, res) => {
         user_nome: user.user_nome,
         user_nivel_acesso: user.user_nivel_acesso,
       },
-      jwtSecret,
+      jwtSecret, 
       { expiresIn: "12h" },
     );
 
@@ -424,7 +444,7 @@ exports.updatePassword = async (req, res) => {
       return res.status(404).json({ erro: "Usuário não encontrado" });
 
     const user = usuarios[0];
-    const senhaValida = await bcrypt.compare(senhaAtual, user.user_senha);
+    const senhaValida = await bcryptCompare(senhaAtual, user.user_senha);
     if (!senhaValida)
       return res.status(400).json({ erro: "Senha atual incorreta" });
 
@@ -438,7 +458,6 @@ exports.updatePassword = async (req, res) => {
     return res.status(200).json({ mensagem: "Senha atualizada com sucesso" });
   } catch (error) {
     console.error("Erro ao atualizar senha:", error);
-    4;
     return res.status(500).json({ erro: "Erro interno ao atualizar senha" });
   }
 };
@@ -557,7 +576,7 @@ exports.resetPasswordWithPin = async (req, res) => {
     }
 
     const userId = usuarios[0].user_id;
-    const senhaHash = await bcrypt.hash(novaSenha, 10);
+    const senhaHash = await passwordWithHash(novaSenha);
 
     await pool.execute(
       `UPDATE usuarios 
