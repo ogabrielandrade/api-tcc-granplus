@@ -1,0 +1,727 @@
+{
+	"metadata": {
+		"origem": "payloads de insercao para Insomnia",
+		"contexto": "controle de estoque de granja sem producao propria",
+		"observacoes": [
+			"Os dados abaixo seguem o mesmo padrao do insert.sql que ja foi aplicado no banco.",
+			"Os ids esperados assumem que a execucao ocorreu na mesma ordem do insert.sql.",
+			"A API usa user_email, pdt_estoque_atual e fncd_ativo em alguns fluxos, embora esses campos nao aparecam no schema exibido."
+		]
+	},
+	"ordem_execucao": [
+		"usuarios",
+		"fornecedores",
+		"unidademedidas",
+		"categorias",
+		"localizacoes",
+		"produtos",
+		"localizacao_produtos",
+		"entradas",
+		"saidas",
+		"destino_movimentacao"
+	],
+	"usuarios": {
+		"comentario": "Dados base do insert.sql para criar usuarios via POST /usuarios.",
+		"itens": [
+			{
+				"ref": "usuario-admin",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/usuarios",
+				"body": {
+					"user_nome": "Administrador",
+					"user_email": "administrador@granplus.com.br",
+					"user_senha": "admin123",
+					"user_nivel_acesso": "admin"
+				}
+			},
+			{
+				"ref": "usuario-almoxarife",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/usuarios",
+				"body": {
+					"user_nome": "Almoxarife",
+					"user_email": "almoxarife@granplus.com.br",
+					"user_senha": "estoque123",
+					"user_nivel_acesso": "user"
+				}
+			},
+			{
+				"ref": "usuario-tecnico",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/usuarios",
+				"body": {
+					"user_nome": "Tecnico de Manutencao",
+					"user_email": "manutencao@granplus.com.br",
+					"user_senha": "financeiro123",
+					"user_nivel_acesso": "user"
+				}
+			}
+		]
+	},
+	"fornecedores": {
+		"comentario": "Dados base do insert.sql para criar fornecedores via POST /fornecedores.",
+		"itens": [
+			{
+				"ref": "forn-higieniza-agro",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/fornecedores",
+				"body": {
+					"fncd_nome": "Higieniza Agro LTDA",
+					"fncd_documento": "12345678000190",
+					"fncd_cep": "01001-000",
+					"fncd_logradouro": "Av. das Industrias",
+					"fncd_numero": "1000",
+					"fncd_complemento": null,
+					"fncd_bairro": "Centro",
+					"fncd_cidade": "Sao Paulo",
+					"fncd_estado": "SP",
+					"fncd_tel": "(11) 4000-1000",
+					"fncd_email": "contato@higienizaagro.com.br"
+				}
+			},
+			{
+				"ref": "forn-tecman-pecas",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/fornecedores",
+				"body": {
+					"fncd_nome": "TecMan Pecas e Servicos",
+					"fncd_documento": "22345678000191",
+					"fncd_cep": "13010-100",
+					"fncd_logradouro": "Rua das Oficinas",
+					"fncd_numero": "250",
+					"fncd_complemento": "Bloco B",
+					"fncd_bairro": "Distrito Norte",
+					"fncd_cidade": "Campinas",
+					"fncd_estado": "SP",
+					"fncd_tel": "(19) 3000-2000",
+					"fncd_email": "vendas@tecmanpecas.com.br"
+				}
+			},
+			{
+				"ref": "forn-papelaria-rural",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/fornecedores",
+				"body": {
+					"fncd_nome": "Papelaria Rural LTDA",
+					"fncd_documento": "32345678000192",
+					"fncd_cep": "80010-000",
+					"fncd_logradouro": "Rodovia BR-101",
+					"fncd_numero": "200",
+					"fncd_complemento": "Km 200",
+					"fncd_bairro": "Jardim America",
+					"fncd_cidade": "Curitiba",
+					"fncd_estado": "PR",
+					"fncd_tel": "(41) 3500-3000",
+					"fncd_email": "comercial@papelariarural.com.br"
+				}
+			},
+			{
+				"ref": "forn-inforural-tech",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/fornecedores",
+				"body": {
+					"fncd_nome": "InfoRural Tecnologia LTDA",
+					"fncd_documento": "42345678000193",
+					"fncd_cep": "70040-010",
+					"fncd_logradouro": "Setor Comercial Sul",
+					"fncd_numero": "450",
+					"fncd_complemento": "Sala 201",
+					"fncd_bairro": "Asa Sul",
+					"fncd_cidade": "Brasilia",
+					"fncd_estado": "DF",
+					"fncd_tel": "(61) 3500-4000",
+					"fncd_email": "suporte@inforural.com.br"
+				}
+			}
+		]
+	},
+	"unidademedidas": {
+		"comentario": "Dados base do insert.sql para criar unidades via POST /unidademedidas.",
+		"itens": [
+			{
+				"ref": "unid-un",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "UN" }
+			},
+			{
+				"ref": "unid-cx",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "CX" }
+			},
+			{
+				"ref": "unid-pct",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "PCT" }
+			},
+			{
+				"ref": "unid-lt",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "LT" }
+			},
+			{
+				"ref": "unid-kg",
+				"id_esperado": 5,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "KG" }
+			},
+			{
+				"ref": "unid-mt",
+				"id_esperado": 6,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "MT" }
+			},
+			{
+				"ref": "unid-rl",
+				"id_esperado": 7,
+				"method": "POST",
+				"route": "/unidademedidas",
+				"body": { "unid_med_sigla": "RL" }
+			}
+		]
+	},
+	"categorias": {
+		"comentario": "Dados base do insert.sql para criar categorias via POST /categorias.",
+		"itens": [
+			{
+				"ref": "cat-higiene-limpeza",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/categorias",
+				"body": { "cat_nome": "Higiene e limpeza" }
+			},
+			{
+				"ref": "cat-manutencao-pecas",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/categorias",
+				"body": { "cat_nome": "Manutencao e pecas" }
+			},
+			{
+				"ref": "cat-escritorio",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/categorias",
+				"body": { "cat_nome": "Escritorio" }
+			},
+			{
+				"ref": "cat-informatica",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/categorias",
+				"body": { "cat_nome": "Informatica" }
+			},
+			{
+				"ref": "cat-epi",
+				"id_esperado": 5,
+				"method": "POST",
+				"route": "/categorias",
+				"body": { "cat_nome": "EPI" }
+			},
+			{
+				"ref": "cat-eletrico",
+				"id_esperado": 6,
+				"method": "POST",
+				"route": "/categorias",
+				"body": { "cat_nome": "Material eletrico" }
+			}
+		]
+	},
+	"localizacoes": {
+		"comentario": "Dados base do insert.sql para criar localizacoes via POST /localizacoes.",
+		"itens": [
+			{
+				"ref": "loc-almox-central",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/localizacoes",
+				"body": {
+					"loc_nome": "Almoxarifado Central",
+					"loc_desc": "Recebimento e guarda dos insumos gerais"
+				}
+			},
+			{
+				"ref": "loc-deposito-higiene",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/localizacoes",
+				"body": {
+					"loc_nome": "Deposito de Higiene",
+					"loc_desc": "Produtos de limpeza e sanitizacao"
+				}
+			},
+			{
+				"ref": "loc-oficina-manutencao",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/localizacoes",
+				"body": {
+					"loc_nome": "Oficina de Manutencao",
+					"loc_desc": "Pecas, ferramentas e itens de reparo"
+				}
+			},
+			{
+				"ref": "loc-sala-administrativa",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/localizacoes",
+				"body": {
+					"loc_nome": "Sala Administrativa",
+					"loc_desc": "Materiais de escritorio e apoio administrativo"
+				}
+			},
+			{
+				"ref": "loc-sala-ti",
+				"id_esperado": 5,
+				"method": "POST",
+				"route": "/localizacoes",
+				"body": {
+					"loc_nome": "Sala de TI",
+					"loc_desc": "Equipamentos e consumiveis de informatica"
+				}
+			}
+		]
+	},
+	"produtos": {
+		"comentario": "Dados base do insert.sql para criar produtos via POST /produtos.",
+		"itens": [
+			{
+				"ref": "prod-desinfetante",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Desinfetante Concentrado 5L",
+					"pdt_codigo": "DES-5L",
+					"pdt_descricao": "Desinfetante concentrado para higienizacao de areas internas e externas",
+					"pdt_estoque_minimo": 15,
+					"pdt_ativo": 1,
+					"cat_id": 1,
+					"unid_med_id": 4
+				}
+			},
+			{
+				"ref": "prod-detergente",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Detergente Neutro 1L",
+					"pdt_codigo": "DET-1L",
+					"pdt_descricao": "Detergente neutro para lavagem de superficies e utensilios",
+					"pdt_estoque_minimo": 20,
+					"pdt_ativo": 1,
+					"cat_id": 1,
+					"unid_med_id": 4
+				}
+			},
+			{
+				"ref": "prod-luva-nitrilica",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Luva Nitrilica Caixa 100",
+					"pdt_codigo": "LUV-100",
+					"pdt_descricao": "Luva nitrilica para uso operacional e protecao individual",
+					"pdt_estoque_minimo": 10,
+					"pdt_ativo": 1,
+					"cat_id": 5,
+					"unid_med_id": 2
+				}
+			},
+			{
+				"ref": "prod-papel-sulfite",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Papel Sulfite A4 500 folhas",
+					"pdt_codigo": "PAP-A4",
+					"pdt_descricao": "Papel sulfite A4 para rotinas administrativas e impressao de documentos",
+					"pdt_estoque_minimo": 30,
+					"pdt_ativo": 1,
+					"cat_id": 3,
+					"unid_med_id": 2
+				}
+			},
+			{
+				"ref": "prod-caneta-azul",
+				"id_esperado": 5,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Caneta Esferografica Azul",
+					"pdt_codigo": "CAN-AZ",
+					"pdt_descricao": "Caneta azul para uso administrativo diario",
+					"pdt_estoque_minimo": 40,
+					"pdt_ativo": 1,
+					"cat_id": 3,
+					"unid_med_id": 2
+				}
+			},
+			{
+				"ref": "prod-mouse-usb",
+				"id_esperado": 6,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Mouse USB Optico",
+					"pdt_codigo": "MOU-USB",
+					"pdt_descricao": "Mouse optico para estações de trabalho e postos de apoio",
+					"pdt_estoque_minimo": 8,
+					"pdt_ativo": 1,
+					"cat_id": 4,
+					"unid_med_id": 1
+				}
+			},
+			{
+				"ref": "prod-teclado-usb",
+				"id_esperado": 7,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Teclado USB Padrao ABNT2",
+					"pdt_codigo": "TEC-AB2",
+					"pdt_descricao": "Teclado USB para estações de trabalho",
+					"pdt_estoque_minimo": 6,
+					"pdt_ativo": 1,
+					"cat_id": 4,
+					"unid_med_id": 1
+				}
+			},
+			{
+				"ref": "prod-cabo-rede",
+				"id_esperado": 8,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Cabo de Rede Cat6 5m",
+					"pdt_codigo": "CAB-5M",
+					"pdt_descricao": "Cabo de rede para manutencao da infraestrutura de TI",
+					"pdt_estoque_minimo": 12,
+					"pdt_ativo": 1,
+					"cat_id": 4,
+					"unid_med_id": 1
+				}
+			},
+			{
+				"ref": "prod-lampada-led",
+				"id_esperado": 9,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Lampada LED 18W",
+					"pdt_codigo": "LMP-18W",
+					"pdt_descricao": "Lampada LED para reposicao em galpoes, salas e corredores",
+					"pdt_estoque_minimo": 20,
+					"pdt_ativo": 1,
+					"cat_id": 6,
+					"unid_med_id": 1
+				}
+			},
+			{
+				"ref": "prod-graxa-multiuso",
+				"id_esperado": 10,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Graxa Multiuso 500g",
+					"pdt_codigo": "GRA-500",
+					"pdt_descricao": "Graxa para manutencao de mancais, correntes e equipamentos",
+					"pdt_estoque_minimo": 12,
+					"pdt_ativo": 1,
+					"cat_id": 2,
+					"unid_med_id": 5
+				}
+			},
+			{
+				"ref": "prod-fita-isolante",
+				"id_esperado": 11,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Fita Isolante 20m",
+					"pdt_codigo": "FIT-20M",
+					"pdt_descricao": "Fita isolante para reparos eletricos e pequenas manutencoes",
+					"pdt_estoque_minimo": 15,
+					"pdt_ativo": 1,
+					"cat_id": 6,
+					"unid_med_id": 7
+				}
+			},
+			{
+				"ref": "prod-parafuso-zincado",
+				"id_esperado": 12,
+				"method": "POST",
+				"route": "/produtos",
+				"body": {
+					"pdt_nome": "Parafuso Zincado 1/4x1",
+					"pdt_codigo": "PAR-114",
+					"pdt_descricao": "Parafuso zincado para fixacoes e reparos gerais",
+					"pdt_estoque_minimo": 50,
+					"pdt_ativo": 1,
+					"cat_id": 2,
+					"unid_med_id": 3
+				}
+			}
+		]
+	},
+	"localizacao_produtos": {
+		"comentario": "Estoque por produto e localizacao, conforme o insert.sql ja aplicado no banco.",
+		"itens": [
+			{ "id_esperado": 1, "lcl_prod_estoque": 120, "pdt_id": 1, "loc_id": 1 },
+			{ "id_esperado": 2, "lcl_prod_estoque": 40, "pdt_id": 1, "loc_id": 2 },
+			{ "id_esperado": 3, "lcl_prod_estoque": 90, "pdt_id": 2, "loc_id": 1 },
+			{ "id_esperado": 4, "lcl_prod_estoque": 35, "pdt_id": 2, "loc_id": 2 },
+			{ "id_esperado": 5, "lcl_prod_estoque": 28, "pdt_id": 3, "loc_id": 1 },
+			{ "id_esperado": 6, "lcl_prod_estoque": 16, "pdt_id": 3, "loc_id": 2 },
+			{ "id_esperado": 7, "lcl_prod_estoque": 70, "pdt_id": 4, "loc_id": 1 },
+			{ "id_esperado": 8, "lcl_prod_estoque": 32, "pdt_id": 4, "loc_id": 4 },
+			{ "id_esperado": 9, "lcl_prod_estoque": 90, "pdt_id": 5, "loc_id": 4 },
+			{ "id_esperado": 10, "lcl_prod_estoque": 18, "pdt_id": 6, "loc_id": 5 },
+			{ "id_esperado": 11, "lcl_prod_estoque": 14, "pdt_id": 7, "loc_id": 5 },
+			{ "id_esperado": 12, "lcl_prod_estoque": 24, "pdt_id": 8, "loc_id": 5 },
+			{ "id_esperado": 13, "lcl_prod_estoque": 20, "pdt_id": 9, "loc_id": 3 },
+			{ "id_esperado": 14, "lcl_prod_estoque": 22, "pdt_id": 10, "loc_id": 3 },
+			{ "id_esperado": 15, "lcl_prod_estoque": 42, "pdt_id": 11, "loc_id": 3 },
+			{ "id_esperado": 16, "lcl_prod_estoque": 500, "pdt_id": 12, "loc_id": 3 }
+		]
+	},
+	"entradas": {
+		"comentario": "Entradas do insert.sql convertidas para payloads do POST /entradas.",
+		"itens": [
+			{
+				"ref": "entrada-1",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/entradas",
+				"body": {
+					"loc_id": 1,
+					"fncd_id": 1,
+					"ent_data_compra": "2026-03-02 08:30:00",
+					"ent_valor_compra": 1480.00,
+					"produtos": [
+						{ "pdt_id": 1, "quantidade": 80, "lote": 26030202, "pdt_validade": "2027-03-02" },
+						{ "pdt_id": 2, "quantidade": 30, "lote": 26030203, "pdt_validade": "2028-12-31" }
+					]
+				}
+			},
+			{
+				"ref": "entrada-2",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/entradas",
+				"body": {
+					"loc_id": 4,
+					"fncd_id": 3,
+					"ent_data_compra": "2026-03-04 09:10:00",
+					"ent_valor_compra": 860.00,
+					"produtos": [
+						{ "pdt_id": 4, "quantidade": 40, "lote": 26030401, "pdt_validade": "2028-12-31" },
+						{ "pdt_id": 5, "quantidade": 25, "lote": 26030402, "pdt_validade": "2029-12-31" }
+					]
+				}
+			},
+			{
+				"ref": "entrada-3",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/entradas",
+				"body": {
+					"loc_id": 5,
+					"fncd_id": 4,
+					"ent_data_compra": "2026-03-06 10:15:00",
+					"ent_valor_compra": 1920.00,
+					"produtos": [
+						{ "pdt_id": 8, "quantidade": 20, "lote": 26030603, "pdt_validade": null }
+					]
+				}
+			},
+			{
+				"ref": "entrada-4",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/entradas",
+				"body": {
+					"loc_id": 3,
+					"fncd_id": 2,
+					"ent_data_compra": "2026-03-08 07:50:00",
+					"ent_valor_compra": 975.00,
+					"produtos": [
+						{ "pdt_id": 9, "quantidade": 18, "lote": 26030801, "pdt_validade": null },
+						{ "pdt_id": 10, "quantidade": 24, "lote": 26030802, "pdt_validade": null },
+						{ "pdt_id": 11, "quantidade": 40, "lote": 26030803, "pdt_validade": null },
+						{ "pdt_id": 12, "quantidade": 300, "lote": 26030804, "pdt_validade": null }
+					]
+				}
+			},
+			{
+				"ref": "entrada-5",
+				"id_esperado": 5,
+				"method": "POST",
+				"route": "/entradas",
+				"body": {
+					"loc_id": 2,
+					"fncd_id": 1,
+					"ent_data_compra": "2026-03-10 08:00:00",
+					"ent_valor_compra": 790.00,
+					"produtos": [
+						{ "pdt_id": 1, "quantidade": 30, "lote": 26031001, "pdt_validade": "2028-04-01" },
+						{ "pdt_id": 2, "quantidade": 40, "lote": 26031002, "pdt_validade": "2027-04-01" },
+						{ "pdt_id": 3, "quantidade": 20, "lote": 26031003, "pdt_validade": "2028-11-30" }
+					]
+				}
+			}
+		]
+	},
+	"saidas": {
+		"comentario": "Saidas do insert.sql convertidas para payloads do POST /saidas.",
+		"itens": [
+			{
+				"ref": "saida-1",
+				"id_esperado": 1,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 1,
+					"loc_id": 1,
+					"lcl_qtde": 18.00,
+					"lcl_destino": "Deposito de Higiene",
+					"lcl_tipo": "Transferencia interna",
+					"lcl_justificativa": "Reposicao de desinfetante no setor de higiene",
+					"lotes_selecionados": [
+						{ "lote": 26030202, "validade": "2027-03-02", "loc_id": 1, "quantidade": 18 }
+					]
+				}
+			},
+			{
+				"ref": "saida-2",
+				"id_esperado": 2,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 2,
+					"loc_id": 1,
+					"lcl_qtde": 12.00,
+					"lcl_destino": "Deposito de Higiene",
+					"lcl_tipo": "Transferencia interna",
+					"lcl_justificativa": "Reposicao de detergente para uso no setor de higiene",
+					"lotes_selecionados": [
+						{ "lote": 26030203, "validade": "2028-12-31", "loc_id": 1, "quantidade": 12 }
+					]
+				}
+			},
+			{
+				"ref": "saida-3",
+				"id_esperado": 3,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 3,
+					"loc_id": 1,
+					"lcl_qtde": 8.00,
+					"lcl_destino": "Deposito de Higiene",
+					"lcl_tipo": "Transferencia interna",
+					"lcl_justificativa": "Distribuicao de luvas para uso operacional",
+					"lotes_selecionados": [
+						{ "lote": 26031003, "validade": "2028-11-30", "loc_id": 1, "quantidade": 8 }
+					]
+				}
+			},
+			{
+				"ref": "saida-4",
+				"id_esperado": 4,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 4,
+					"loc_id": 1,
+					"lcl_qtde": 10.00,
+					"lcl_destino": "Sala Administrativa",
+					"lcl_tipo": "Transferencia interna",
+					"lcl_justificativa": "Envio de papel A4 para setor administrativo",
+					"lotes_selecionados": [
+						{ "lote": 26030401, "validade": "2028-12-31", "loc_id": 1, "quantidade": 10 }
+					]
+				}
+			},
+			{
+				"ref": "saida-5",
+				"id_esperado": 5,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 6,
+					"loc_id": 5,
+					"lcl_qtde": 3.00,
+					"lcl_destino": "Sala de TI",
+					"lcl_tipo": "Consumo interno",
+					"lcl_justificativa": "Substituicao de mouse com defeito",
+					"lotes_selecionados": [
+						{ "lote": null, "validade": null, "loc_id": 5, "quantidade": 3 }
+					]
+				}
+			},
+			{
+				"ref": "saida-6",
+				"id_esperado": 6,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 10,
+					"loc_id": 3,
+					"lcl_qtde": 4.00,
+					"lcl_destino": "Oficina de Manutencao",
+					"lcl_tipo": "Consumo interno",
+					"lcl_justificativa": "Uso de graxa em manutencao preventiva",
+					"lotes_selecionados": [
+						{ "lote": null, "validade": null, "loc_id": 3, "quantidade": 4 }
+					]
+				}
+			},
+			{
+				"ref": "saida-7",
+				"id_esperado": 7,
+				"method": "POST",
+				"route": "/saidas",
+				"body": {
+					"pdt_id": 12,
+					"loc_id": 3,
+					"lcl_qtde": 20.00,
+					"lcl_destino": "Oficina de Manutencao",
+					"lcl_tipo": "Consumo interno",
+					"lcl_justificativa": "Aplicacao de parafusos em reparos gerais",
+					"lotes_selecionados": [
+						{ "lote": null, "validade": null, "loc_id": 3, "quantidade": 20 }
+					]
+				}
+			}
+		]
+	},
+	"destino_movimentacao": {
+		"comentario": "Relacao de destinos das saidas, conforme o insert.sql ja executado.",
+		"itens": [
+			{ "sai_id": 1, "lcl_id": 2 },
+			{ "sai_id": 2, "lcl_id": 4 },
+			{ "sai_id": 3, "lcl_id": 6 },
+			{ "sai_id": 4, "lcl_id": 8 }
+		]
+	}
+}
