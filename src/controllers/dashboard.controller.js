@@ -35,6 +35,13 @@ const getDashboardResume = async (req, res) => {
       WHERE DATE(lcl_data_saida) = CURDATE()
     `);
 
+    const [investimentoMes] = await pool.execute(`
+      SELECT IFNULL(SUM(ent_valor_compra), 0) AS valor_entradas_mes
+      FROM entrada
+      WHERE MONTH(ent_data) = MONTH(CURDATE()) 
+        AND YEAR(ent_data) = YEAR(CURDATE())
+    `);
+
     const [totalMovimentacoes] = await pool.execute(`
       select p.pdt_id, 
 	           p.pdt_nome,
@@ -58,6 +65,7 @@ const getDashboardResume = async (req, res) => {
       entradas_hoje: entradasHoje[0].entradas_hoje,
       saidas_hoje: saidasHoje[0].saidas_hoje,
       total_movimentacoes: totalMovimentacoes,
+      valor_entradas_mes: investimentoMes[0].valor_entradas_mes,
     });
   } catch (error) {
     console.error("Erro no dashboard:", error);
