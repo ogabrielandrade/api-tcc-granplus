@@ -38,11 +38,14 @@ exports.searchLocation = async (req, res) => {
 
 // CRIAR LOCALIZAÇÃO
 exports.createLocation = async (req, res) => {
+  const connection = await pool.getConnection();
   const { loc_nome, loc_desc } = req.body;
   try {
     // Tratamento de dados
     const nome = typeof loc_nome === "string" ? loc_nome.trim() : "";
     const desc = typeof loc_desc === "string" ? loc_desc.trim() : "";
+
+    await connection.beginTransaction();
 
     if (!nome) {
       return res
@@ -55,33 +58,38 @@ exports.createLocation = async (req, res) => {
       [nome, desc],
     );
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Localização ${nome} criada`,
-        "localizacao",
-        result.insertId,
-      );
-    } catch (error) {
-      console.error("Erro ao registrar localização:", error);
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Localização ${nome} criada`,
+      "localizacao",
+      result.insertId,
+    );
+
+    await connection.commit();
 
     return res.status(201).json({
       message: "Localização criada com sucesso",
       id: result.insertId,
     });
   } catch (err) {
+    await connection.rollback();
     return res
       .status(500)
       .json({ erro: "Erro ao criar localização", detalhe: err.message });
+  } finally {
+    connection.release();
   }
 };
 
 // ATUALIZAR LOCALIZAÇÃO
 exports.updateLocation = async (req, res) => {
-  const { id } = req.params;
-  const { loc_nome, loc_desc } = req.body;
+  const connection = await pool.getConnection();
   try {
+    const { id } = req.params;
+    const { loc_nome, loc_desc } = req.body;
+
+    await connection.beginTransaction();
+
     const nome = typeof loc_nome === "string" ? loc_nome.trim() : "";
     const desc = typeof loc_desc === "string" ? loc_desc.trim() : "";
 
@@ -110,33 +118,35 @@ exports.updateLocation = async (req, res) => {
       return res.status(404).json({ erro: "Localização não encontrada" });
     }
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Localização ${nomeAntigoLoc} atualizada para ${nome}`,
-        "localizacao",
-        result.insertID,
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar localização", error);
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Localização ${nomeAntigoLoc} atualizada para ${nome}`,
+      "localizacao",
+      result.insertID,
+    );
+
+    await connection.commit();
 
     return res.json({
       message: "Localização atualizada com sucesso",
     });
   } catch (err) {
+    await connection.rollback();
     return res
       .status(500)
       .json({ erro: "Erro ao atualizar localização", detalhe: err.message });
+  } finally {
+    connection.release();
   }
 };
 
 // DELETAR LOCALIZAÇÃO
 exports.deleteLocation = async (req, res) => {
-
-  const { id } = req.params;
-
+  const connection = await pool.getConnection();
   try {
+    const { id } = req.params;
+
+    await connection.beginTransaction();
 
     const [nome] = await pool.execute(
       `SELECT loc_nome FROM localizacao WHERE loc_id = ? LIMIT 1`,
@@ -155,21 +165,20 @@ exports.deleteLocation = async (req, res) => {
       return res.status(404).json({ erro: "Localização não encontrada" });
     }
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Localização ${nomeLoc} (ID ${id}) excluída`,
-        "localizacao",
-        result.insertID,
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar localização", error);
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Localização ${nomeLoc} (ID ${id}) excluída`,
+      "localizacao",
+      result.insertID,
+    );
+
+    await connection.commit();
 
     return res.status(200).json({
       message: "Localização removida com sucesso",
     });
   } catch (err) {
+    await connection.rollback();
     console.error({
       erro: "Erro ao remover localização",
       detalhe: err.message,
@@ -185,5 +194,7 @@ exports.deleteLocation = async (req, res) => {
     return res
       .status(500)
       .json({ erro: "Erro ao remover localização", detalhe: err.message });
+  } finally {
+    connection.release();
   }
 };

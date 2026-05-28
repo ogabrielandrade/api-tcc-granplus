@@ -44,7 +44,9 @@ exports.getSupplierById = async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ mensagem: "Fornecedor não encontrado ou inativo" });
+      return res
+        .status(404)
+        .json({ mensagem: "Fornecedor não encontrado ou inativo" });
     }
 
     res.json(rows[0]);
@@ -55,22 +57,25 @@ exports.getSupplierById = async (req, res) => {
 
 // CRIAR FORNECEDOR
 exports.createSupplier = async (req, res) => {
-  const {
-    fncd_nome,
-    fncd_documento,
-    fncd_tel,
-    fncd_email,
-    fncd_cep,
-    fncd_logradouro,
-    fncd_numero,
-    fncd_complemento,
-    fncd_bairro,
-    fncd_cidade,
-    fncd_estado,
-    fncd_ativo,
-  } = req.body;
-
+  const connection = await pool.getConnection();
   try {
+    const {
+      fncd_nome,
+      fncd_documento,
+      fncd_tel,
+      fncd_email,
+      fncd_cep,
+      fncd_logradouro,
+      fncd_numero,
+      fncd_complemento,
+      fncd_bairro,
+      fncd_cidade,
+      fncd_estado,
+      fncd_ativo,
+    } = req.body;
+
+    await connection.beginTransaction();
+
     // Normalização dos dados básicos
     const nome = typeof fncd_nome === "string" ? fncd_nome.trim() : "";
 
@@ -118,7 +123,17 @@ exports.createSupplier = async (req, res) => {
 
     // Validação de campos em branco (Complemento não entra aqui)
     console.log("Fornecedor.create - entrando na validação obrigatória");
-    if (!nome || !documento || !telefone || !cep || !logradouro || !numero || !bairro || !cidade || !estado) {
+    if (
+      !nome ||
+      !documento ||
+      !telefone ||
+      !cep ||
+      !logradouro ||
+      !numero ||
+      !bairro ||
+      !cidade ||
+      !estado
+    ) {
       console.warn("Fornecedor.create - campos obrigatórios ausentes", {
         nome,
         documento,
@@ -153,7 +168,9 @@ exports.createSupplier = async (req, res) => {
     );
 
     if (fornecedorPorDocumento.length > 0) {
-      return res.status(409).json({ erro: "Fornecedor já cadastrado com este CPF/CNPJ" });
+      return res
+        .status(409)
+        .json({ erro: "Fornecedor já cadastrado com este CPF/CNPJ" });
     }
 
     const [result] = await pool.execute(
@@ -175,47 +192,51 @@ exports.createSupplier = async (req, res) => {
       ],
     );
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Fornecedor ${nome} criado`,
-        "fornecedor",
-        result.insertId,
-      );
-    } catch (error) {
-      console.error("Erro ao criar fornecedor", error);
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Fornecedor ${nome} criado`,
+      "fornecedor",
+      result.insertId,
+    );
+
+    await connection.commit();
 
     res.status(201).json({
       mensagem: "Fornecedor criado com sucesso",
       id: result.insertId,
     });
   } catch (error) {
+    await connection.rollback();
     console.error("Erro ao criar fornecedor:", error);
     res.status(500).json({ erro: "Erro interno ao criar fornecedor" });
+  } finally {
+    connection.release();
   }
 };
 
 // ATUALIZAÇÃO DE FORNECEDOR
 exports.updateSupplier = async (req, res) => {
-  const { id } = req.params;
-
-  const {
-    fncd_nome,
-    fncd_documento,
-    fncd_tel,
-    fncd_email,
-    fncd_cep,
-    fncd_logradouro,
-    fncd_numero,
-    fncd_complemento,
-    fncd_bairro,
-    fncd_cidade,
-    fncd_estado,
-    fncd_ativo,
-  } = req.body;
-
+  const connection = await pool.getConnection();
   try {
+    const { id } = req.params;
+
+    const {
+      fncd_nome,
+      fncd_documento,
+      fncd_tel,
+      fncd_email,
+      fncd_cep,
+      fncd_logradouro,
+      fncd_numero,
+      fncd_complemento,
+      fncd_bairro,
+      fncd_cidade,
+      fncd_estado,
+      fncd_ativo,
+    } = req.body;
+
+    await connection.beginTransaction();
+
     // Normalização dos dados básicos
     const nome = typeof fncd_nome === "string" ? fncd_nome.trim() : "";
     const documento =
@@ -270,7 +291,9 @@ exports.updateSupplier = async (req, res) => {
     }
 
     if (!/^\d{11}$|^\d{14}$/.test(documento)) {
-      return res.status(400).json({ erro: "CPF/CNPJ deve ter 11 ou 14 dígitos" });
+      return res
+        .status(400)
+        .json({ erro: "CPF/CNPJ deve ter 11 ou 14 dígitos" });
     }
 
     if (![0, 1].includes(ativoNormalizado)) {
@@ -292,7 +315,9 @@ exports.updateSupplier = async (req, res) => {
     );
 
     if (fornecedorPorDocumento.length > 0) {
-      return res.status(409).json({ erro: "Já existe fornecedor com este CPF/CNPJ" });
+      return res
+        .status(409)
+        .json({ erro: "Já existe fornecedor com este CPF/CNPJ" });
     }
 
     const [result] = await pool.execute(
@@ -316,29 +341,34 @@ exports.updateSupplier = async (req, res) => {
       ],
     );
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Fornecedor ${nome} atualizado`,
-        "fornecedor",
-        result.insertId,
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar fornecedor", error);
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Fornecedor ${nome} atualizado`,
+      "fornecedor",
+      result.insertId,
+    );
+
+    await connection.commit();
 
     res.json({ mensagem: "Fornecedor atualizado com sucesso" });
   } catch (error) {
+    await connection.rollback();
     console.error("Erro ao atualizar fornecedor:", error);
     res.status(500).json({ erro: "Erro interno ao atualizar fornecedor" });
+  } finally {
+    connection.release();
   }
 };
 
 // DELETAR FORNECEDOR (Agora com SOFT DELETE)
 exports.deleteSupplier = async (req, res) => {
-  const { id } = req.params;
+  const connection = await pool.getConnection();
 
   try {
+    const { id } = req.params;
+
+    await connection.beginTransaction();
+
     const [fornecedorBusca] = await pool.execute(
       "SELECT fncd_nome, fncd_ativo FROM fornecedor WHERE fncd_id = ?",
       [id],
@@ -348,7 +378,8 @@ exports.deleteSupplier = async (req, res) => {
       return res.status(404).json({ mensagem: "Fornecedor não encontrado" });
     }
 
-    const { fncd_nome: nomeFornecedor, fncd_ativo: isAtivo } = fornecedorBusca[0];
+    const { fncd_nome: nomeFornecedor, fncd_ativo: isAtivo } =
+      fornecedorBusca[0];
 
     if (isAtivo === 0) {
       return res.status(400).json({ erro: "Fornecedor já está inativo." });
@@ -360,22 +391,25 @@ exports.deleteSupplier = async (req, res) => {
       [id],
     );
 
-    try {
-      // Usando o 'id' ao invés de result.insertId
-      await registerAudit(
-        req.user.user_id,
-        `Fornecedor ${nomeFornecedor} inativado`,
-        "fornecedor",
-        id
-      );
-    } catch (error) {
-      console.error("Erro ao registrar auditoria", error);
-    }
+    // Usando o 'id' ao invés de result.insertId
+    await registerAudit(
+      req.user.user_id,
+      `Fornecedor ${nomeFornecedor} inativado`,
+      "fornecedor",
+      id,
+    );
+
+    await connection.commit();
 
     res.json({ mensagem: "Fornecedor inativado com sucesso" });
   } catch (error) {
+    await connection.rollback();
     // Esse bloco do ER_ROW_IS_REFERENCED_2 agora raramente ou nunca vai ser chamado,
     // já que o UPDATE não conflita com Foreign Keys!
-    res.status(500).json({ erro: "Erro ao inativar fornecedor", detalhe: error.message });
+    res
+      .status(500)
+      .json({ erro: "Erro ao inativar fornecedor", detalhe: error.message });
+  } finally {
+    connection.release();
   }
 };

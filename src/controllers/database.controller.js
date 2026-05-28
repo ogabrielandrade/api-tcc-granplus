@@ -26,4 +26,3 @@ exports.testDataBase = async (req, res) => {
     });
   }
 };
-

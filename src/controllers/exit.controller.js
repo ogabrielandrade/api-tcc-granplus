@@ -244,8 +244,12 @@ const getAvailableLots = async (req, res) => {
   }
 };
 
+
+// REGISTRAR SAÍDA
 const registerExit = async (req, res) => {
+  const connection = await pool.getConnection()
   try {
+    await connection.beginTransaction()
     const {
       pdt_id,
       loc_id,
@@ -262,7 +266,7 @@ const registerExit = async (req, res) => {
         .json({ erro: "Produto e quantidade são obrigatórios" });
     }
 
-    // busca o produto e estoque atual consolidado.
+    // busca o produto e estoque atual consolidado
     const [produtoRows] = await pool.execute(
       `SELECT pdt_id, pdt_estoque_atual
        FROM produto
@@ -282,7 +286,7 @@ const registerExit = async (req, res) => {
       return res.status(404).json({ erro: "Produto não encontrado" });
     }
 
-    const lotesSelecionados = Array.isArray(lotes_selecionados)
+    const lotesSelecionados = Array.isArray(lotes_selecionados) // o método Array.isArray retorna true se um objeto é um array
       ? lotes_selecionados
       : [];
 
@@ -481,18 +485,23 @@ const registerExit = async (req, res) => {
       result.insertId,
     );
 
+    await connection.commit()
+
     res.status(201).json({
       mensagem: "Saída registrada com sucesso",
       sai_id: result.insertId,
       aviso_validade: aviso,
     });
   } catch (error) {
+    await connection.rollback()
     console.error("Erro ao registrar saída:", error);
 
     res.status(500).json({
       erro: "Erro ao registrar saída",
       detalhe: error.message,
     });
+  } finally {
+    connection.release()
   }
 };
 

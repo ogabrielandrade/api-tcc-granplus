@@ -95,18 +95,37 @@ const registerInput = async (req, res) => {
       // é disparada e atualiza o 'pdt_estoque_atual' na tabela 'produto' automaticamente!
     }
 
+   const [produtosNome] = await connection.execute(
+      `SELECT ep.pdt_id, p.pdt_nome, ep.ent_prod_qtde, ep.ent_prod_lote
+       FROM entrada_produtos ep
+       JOIN produto p ON ep.pdt_id = p.pdt_id
+       WHERE ep.ent_id = ?`,
+      [ent_id],
+    );
+
+    const descricaoProdutos =
+      produtosNome.length > 0
+        ? produtosNome
+            .map(
+              (produto) =>
+                `${produto.pdt_nome} (qtd: ${produto.ent_prod_qtde}${produto.ent_prod_lote !== null ? `, lote: ${produto.ent_prod_lote}` : ""})`,
+            )
+            .join(", ")
+        : "sem produtos encontrados";
+
     await updateColunaEstoqueAtual(connection);
+
+    await registerAudit(
+      req.user.user_id,
+      `Entrada no(s) produto(s) ${descricaoProdutos}`,
+      "entrada",
+      ent_id,
+    );
 
     // Tudo deu certo? Confirma a transação
     await connection.commit();
 
     // Registra a auditoria com segurança de que a entrada realmente existe
-    await registerAudit(
-      req.user.user_id,
-      `Entrada no produto ${produtos.pdt_id}`,
-      "entrada",
-      ent_id,
-    );
 
     res.status(201).json({
       mensagem: "Entrada registrada com sucesso",

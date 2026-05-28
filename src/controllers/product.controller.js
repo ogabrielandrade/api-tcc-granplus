@@ -21,6 +21,8 @@ const listAllProducts = async (req, res) => {
 
 // CRIAR PRODUTO
 const createProduct = async (req, res) => {
+  const connection = await pool.getConnection();
+
   try {
     const {
       pdt_nome,
@@ -31,6 +33,8 @@ const createProduct = async (req, res) => {
       cat_id,
       unid_med_id,
     } = req.body;
+
+    await connection.beginTransaction();
 
     // validação Básica
     const nome = typeof pdt_nome === "string" ? pdt_nome.trim() : "";
@@ -85,32 +89,32 @@ const createProduct = async (req, res) => {
       ],
     );
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        "Produto criado",
-        "produto",
-        result.insertId,
-      );
-    } catch (error) {
-      console.error(
-        "Aviso: Falha ao registrar auditoria de criação de produto",
-        error,
-      );
-    }
+    await registerAudit(
+      req.user.user_id,
+      "Produto criado",
+      "produto",
+      result.insertId,
+    );
+
+    await connection.commit();
 
     res.status(201).json({
       message: "Produto criado com sucesso",
       id: result.insertId,
     });
   } catch (error) {
+    await connection.rollback();
     console.error("Erro ao criar produto", error);
     res.status(500).json({ error: "Erro ao criar produto" });
+  } finally {
+    connection.release();
   }
 };
 
 // ATUALIZAR PRODUTO
 const updateProduct = async (req, res) => {
+  const connection = await pool.getConnection();
+
   try {
     const { id } = req.params;
     const {
@@ -122,6 +126,8 @@ const updateProduct = async (req, res) => {
       cat_id,
       unid_med_id,
     } = req.body;
+
+    await connection.beginTransaction();
 
     const nome = typeof pdt_nome === "string" ? pdt_nome.trim() : "";
     const codigo = typeof pdt_codigo === "string" ? pdt_codigo.trim() : "";
@@ -187,31 +193,32 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Produto não encontrado" });
     }
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Produto ${id} atualizado`, // ********* MUDANÇA AQUI, TESTAR ************
-        "produto",
-        id,
-      );
-    } catch (e) {
-      console.error(
-        "Aviso: Falha ao registrar auditoria de atualização de produto",
-        e,
-      );
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Produto ${id} atualizado`, // ********* MUDANÇA AQUI, TESTAR ************
+      "produto",
+      id,
+    );
+
+    await connection.commit();
 
     res.json({ mensagem: "Produto atualizado com sucesso" });
   } catch (error) {
+    await connection.rollback();
     console.error("Erro ao atualizar produto", error);
     res.status(500).json({ error: "Erro ao atualizar produto" });
+  } finally {
+    connection.release();
   }
 };
 
 // DELETAR (SOFT DELETE) PRODUTOS
 const deleteProduct = async (req, res) => {
+  const connection = await pool.getConnection();
   try {
     const { id } = req.params;
+
+    await connection.beginTransaction();
 
     const [result] = await pool.execute(
       `UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`,
@@ -223,24 +230,22 @@ const deleteProduct = async (req, res) => {
       return res.status(404).json({ message: "Produto não encontrado" });
     }
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Produto ${id} desativado`,
-        "produto",
-        id,
-      );
-    } catch (e) {
-      console.error(
-        "Aviso: Falha ao registrar auditoria de inativação de produto",
-        e,
-      );
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Produto ${id} desativado`,
+      "produto",
+      id,
+    );
+
+    await connection.commit();
 
     res.status(200).json({ message: "Produto desativado com sucesso" });
   } catch (error) {
+    await connection.rollback();
     console.error("Erro ao desativar o produto");
     res.status(500).json({ error: "Erro ao desativar o produto" });
+  } finally {
+    connection.release();
   }
 };
 
