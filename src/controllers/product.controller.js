@@ -41,17 +41,33 @@ const createProduct = async (req, res) => {
         error: "Nome, código, categoria e unidade de medida são obrigatórios",
       });
     }
-
-    // verifica se o Código já existe
-    const [codigoExiste] = await pool.execute(
-      "SELECT pdt_id FROM produto WHERE pdt_codigo = ? LIMIT 1",
-      [codigo],
+    // valida duplicidade, incluindo produtos inativos
+    const [duplicados] = await pool.execute(
+      `SELECT pdt_id, pdt_nome, pdt_codigo
+       FROM produto
+       WHERE pdt_codigo = ? OR pdt_nome = ?`,
+      [codigo, nome],
     );
 
-    if (codigoExiste.length > 0) {
-      return res
-        .status(409)
-        .json({ error: "Já existe um produto com este código" });
+    const codigoJaExiste = duplicados.some((p) => p.pdt_codigo === codigo);
+    const nomeJaExiste = duplicados.some((p) => p.pdt_nome === nome);
+
+    if (codigoJaExiste && nomeJaExiste) {
+      return res.status(409).json({
+        error: `Já existe um produto cadastrado com o nome "${nome}" e com o código "${codigo}", inclusive entre produtos excluídos`,
+      });
+    }
+
+    if (codigoJaExiste) {
+      return res.status(409).json({
+        error: `Já existe um produto cadastrado com o código "${codigo}", inclusive entre produtos excluídos`,
+      });
+    }
+
+    if (nomeJaExiste) {
+      return res.status(409).json({
+        error: `Já existe um produto cadastrado com o nome "${nome}", inclusive entre produtos excluídos`,
+      });
     }
 
     const [result] = await pool.execute(
@@ -59,8 +75,8 @@ const createProduct = async (req, res) => {
        (pdt_nome, pdt_codigo, pdt_descricao, pdt_estoque_minimo, pdt_ativo, cat_id, unid_med_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
-        pdt_nome,
-        pdt_codigo,
+        nome,
+        codigo,
         pdt_descricao || "", // Evita inserir NULL, coloca string vazia
         Number(pdt_estoque_minimo) || 0, // Se não enviar, assume 0
         pdt_ativo,
@@ -115,7 +131,6 @@ const updateProduct = async (req, res) => {
         error: "Nome, código, categoria e unidade de medida são obrigatórios",
       });
     }
-
 
     // **** PARTE COMENTADA PARA TESTE: aparentemente, nãe era possível atualização de produtos por conta desta parte
     // anti-duplicação de código na edição
