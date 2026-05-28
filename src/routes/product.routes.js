@@ -6,12 +6,10 @@ const requireAdmin = require("../middlewares/requireAdmin");
 
 router.use(authenticateToken);
 
-router.get("/", productController.listAllProducts); // '/produtos' listar todos os produtos
-router.get("/historico/:id", productController.historicalMoviments); // '/produtos/movimentacoes/id' histórico de movimentações por id
+router.get("/", productController.listAllProducts); 
+router.get("/historico/:id", productController.historicalMoviments); 
 router.post("/", productController.createProduct);
-router.put("/:id", productController.updateProduct); // '/produtos/id' atualizar produto 
-
-// ROTAS GERENCIAIS (Apenas Administradores)
-router.delete("/:id", requireAdmin, productController.deleteProduct); // '/id' deletar produto (torná-lo inativo)
+router.put("/:id", productController.updateProduct); 
+router.delete("/:id", productController.deleteProduct);
 
 module.exports = router;

@@ -131,19 +131,34 @@ const updateProduct = async (req, res) => {
         error: "Nome, código, categoria e unidade de medida são obrigatórios",
       });
     }
+    // valida duplicidade ao atualizar (inclui produtos inativos), exceto o próprio registro
+    const [duplicadosEdicao] = await pool.execute(
+      `SELECT pdt_id, pdt_nome, pdt_codigo
+       FROM produto
+       WHERE (pdt_codigo = ? OR pdt_nome = ?) AND pdt_id <> ?`,
+      [codigo, nome, id],
+    );
 
-    // **** PARTE COMENTADA PARA TESTE: aparentemente, nãe era possível atualização de produtos por conta desta parte
-    // anti-duplicação de código na edição
-    // const [codigoExiste] = await pool.execute(
-    //   "SELECT pdt_id FROM produto WHERE pdt_codigo = ? AND pdt_id <> ? LIMIT 1",
-    //   [codigo, id],
-    // );
+    const codigoJaExisteEdicao = duplicadosEdicao.some((p) => p.pdt_codigo === codigo);
+    const nomeJaExisteEdicao = duplicadosEdicao.some((p) => p.pdt_nome === nome);
 
-    // if (codigoExiste.length > 0) {
-    //   return res
-    //     .status(409)
-    //     .json({ error: "Este código já está em uso por outro produto" });
-    // }
+    if (codigoJaExisteEdicao && nomeJaExisteEdicao) {
+      return res.status(409).json({
+        error: `Já existe outro produto com o nome "${nome}" e com o código "${codigo}", inclusive entre produtos excluídos`,
+      });
+    }
+
+    if (codigoJaExisteEdicao) {
+      return res.status(409).json({
+        error: `Já existe outro produto com o código "${codigo}", inclusive entre produtos excluídos`,
+      });
+    }
+
+    if (nomeJaExisteEdicao) {
+      return res.status(409).json({
+        error: `Já existe outro produto com o nome "${nome}", inclusive entre produtos excluídos`,
+      });
+    }
 
     const [result] = await pool.execute(
       `UPDATE produto SET
