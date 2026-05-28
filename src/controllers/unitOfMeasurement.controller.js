@@ -37,6 +37,7 @@ exports.getUnitsById = async (req, res) => {
 
 // CRIAR NOVA UNIDADE
 exports.createUnits = async (req, res) => {
+  const connection = await pool.getConnection()
   const { unid_med_sigla } = req.body;
 
   if (!unid_med_sigla) {
@@ -52,6 +53,7 @@ exports.createUnits = async (req, res) => {
   `;
 
   try {
+    await connection.beginTransaction()
     //const sigla = String(unid_med_sigla).trim();
     const sigla =
       typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
@@ -82,22 +84,21 @@ exports.createUnits = async (req, res) => {
 
     const [result] = await pool.execute(sql, [sigla]);
 
-    try {
       await registerAudit(
         req.user.user_id,
         `Unidade de medida ${sigla} criada`,
         "unidade_medida",
         result.insertId,
       );
-    } catch (error) {
-      console.log("Erro ao criar unidade de medida", error);
-    }
+    
+    await connection.commit()
 
     res.status(201).json({
       message: "Unidade criada com sucesso",
       id: result.insertId,
     });
   } catch (error) {
+    await connection.rollback()
     console.error(
       "Erro ao criar unidade de medida, utilize até três caracteres:",
       error,
@@ -105,11 +106,14 @@ exports.createUnits = async (req, res) => {
     res.status(500).json({
       erro: "Erro interno ao criar unidade de medida",
     });
+  } finally {
+    connection.release()
   }
 };
 
 // ATUALIZAR UNIDADE
 exports.updateUnits = async (req, res) => {
+  const connection = await pool.getConnection()
   const { id } = req.params;
   const { unid_med_sigla } = req.body;
 
@@ -126,6 +130,7 @@ exports.updateUnits = async (req, res) => {
   `;
 
   try {
+    await connection.beginTransaction()
     //const sigla = String(unid_med_sigla).trim();
     const sigla =
       typeof unid_med_sigla === "string" ? unid_med_sigla.trim() : "";
@@ -171,18 +176,7 @@ exports.updateUnits = async (req, res) => {
 
     const nomeAnterior = nome[0].unid_med_sigla;
 
-    const [result] = await pool.query(sql, [sigla, id]);
-
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Unidade de medida ${nomeAnterior} atualizada para ${sigla}`,
-        "unidade_medida",
-        result.insertId,
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar unidade de medida");
-    }
+    const [result] = await pool.query(sql, [sigla, id]);    
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -190,22 +184,40 @@ exports.updateUnits = async (req, res) => {
       });
     }
 
+     await registerAudit(
+        req.user.user_id,
+        `Unidade de medida ${nomeAnterior} atualizada para ${sigla}`,
+        "unidade_medida",
+        result.insertId,
+      );
+
+      await connection.commit()
+
     res.json({
       message: "Unidade atualizada com sucesso",
     });
   } catch (error) {
+    await connection.rollback()
     console.error("Erro ao atualizar unidade de medida:", error);
     res.status(500).json({
       erro: "Erro interno ao atualizar unidade de medida",
     });
+  } finally {
+    connection.release()
   }
 };
 
 // DELETAR UNIDADE
 exports.deleteUnits = async (req, res) => {
+
+  const connection = await pool.getConnection()
+
   const { id } = req.params;
 
   try {
+
+    await connection.beginTransaction()
+
     const [nome] = await pool.execute(
       "SELECT unid_med_sigla FROM unidade_medida WHERE unid_med_id = ?",
       [id],
@@ -224,24 +236,20 @@ exports.deleteUnits = async (req, res) => {
       });
     }
 
-    try {
       await registerAudit(
         req.user.user_id,
         `Unidade de medida ${nomeUnidMed} excluída`,
         "unidade_medida",
         result.insertId,
       );
-    } catch (error) {
-      console.error({
-        error,
-        error: message,
-      });
-    }
+    
+      await connection.commit()
 
     res.json({
       message: "Unidade removida com sucesso",
     });
   } catch (error) {
+    await connection.rollback()
     console.error("Erro ao remover unidade de medida:", error);
 
     // proteção de integridade referencial - chave estrangeira
@@ -252,5 +260,7 @@ exports.deleteUnits = async (req, res) => {
     }
 
     res.status(500).json({ erro: "Erro ao remover unidade de medida" });
+  } finally {
+    connection.release()
   }
 };

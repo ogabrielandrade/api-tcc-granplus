@@ -90,6 +90,7 @@ exports.getUserById = async (req, res) => {
 
 // CRIAR NOVO USUARIO
 exports.createUser = async (req, res) => {
+  const connection = await pool.getConnection()
   const { user_nome, user_senha, user_nivel_acesso, user_email } = req.body;
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
   const emailNormalizado = String(user_email || "").trim().toLowerCase();
@@ -108,6 +109,7 @@ exports.createUser = async (req, res) => {
   }
 
   try {
+    await connection.beginTransaction();
     // verificar se o usuário já existe
     const [existeUsuario] = await pool.execute(
       `SELECT user_id FROM usuarios WHERE user_nome = ?`,
@@ -139,18 +141,15 @@ exports.createUser = async (req, res) => {
       [user_nome, emailNormalizado, senhaHash, nivelAcessoNormalizado],
     );
 
-    try {
+    
       await registerAudit(
         req.user.user_id,
         `Usuário ${user_nome} criado`,
         "usuarios",
         result.insertId
       )
-    } catch (error) {
-      console.error({
-        error: message
-      })
-    }
+    
+      await connection.commit()
 
     // resposta de Sucesso
     return res.status(201).json({
@@ -163,15 +162,19 @@ exports.createUser = async (req, res) => {
       },
     });
   } catch (error) {
+    await connection.rollback()
     console.error("Erro ao criar usuário:", error);
     return res.status(500).json({
       erro: "Erro interno ao criar usuário",
     });
+  } finally {
+    connection.release()
   }
 };
 
 // ATUALIZAR USUÁRIO
 exports.updateUser = async (req, res) => {
+  const connection = await pool.getConnection()
   const { id } = req.params;
   const { user_nome, user_nivel_acesso, user_ativo, user_senha, user_email } = req.body;
 
@@ -203,6 +206,7 @@ exports.updateUser = async (req, res) => {
   }
 
   try {
+    await connection.beginTransaction()
     // verificar se usuário existe
     const [usuarioExiste] = await pool.execute(
       `SELECT user_id FROM usuarios WHERE user_id = ?`,
@@ -276,25 +280,34 @@ exports.updateUser = async (req, res) => {
       updateQuery.insertId
     )
 
+    await connection.commit()
+
     return res.status(200).json({
       mensagem: "Usuário atualizado com sucesso",
       user_id: id,
     });
   } catch (error) {
+    await connection.rollback()
     console.error("Erro ao atualizar usuário:", error);
 
     return res.status(500).json({
       erro: "Erro ao atualizar usuário",
       detalhe: error.message,
     });
+  } finally {
+    connection.release()
   }
 };
 
 // DESATIVAR USUÁRIO (SOFT DELETE)
 exports.deleteUser = async (req, res) => {
-  const { id } = req.params;
-
+  
+  const connection = await pool.getConnection()
   try {
+
+    await connection.beginTransaction()
+
+    const { id } = req.params;
 
     const [nome] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
 
@@ -307,13 +320,6 @@ exports.deleteUser = async (req, res) => {
       [id],
     );
 
-    await registerAudit(
-      req.user.user_id,
-      `Usuário ${nomeUsuario} desativado`,
-      "usuarios",
-      result.insertId
-    )
-
     // nenhum registro afetado
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -321,14 +327,26 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
+    await registerAudit(
+      req.user.user_id,
+      `Usuário ${nomeUsuario} desativado`,
+      "usuarios",
+      result.insertId
+    )
+
+    await connection.commit()
+
     return res.status(200).json({
       mensagem: "Usuário desativado com sucesso",
     });
   } catch (error) {
+    await connection.rollback()
     console.error("Erro ao desativar usuário:", error);
     return res.status(500).json({
       erro: "Erro ao desativar usuário",
     });
+  } finally {
+    connection.release()
   }
 };
 
