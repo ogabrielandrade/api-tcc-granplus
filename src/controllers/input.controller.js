@@ -108,7 +108,7 @@ const registerInput = async (req, res) => {
         ? produtosNome
             .map(
               (produto) =>
-                `${produto.pdt_nome} (qtd: ${produto.ent_prod_qtde}${produto.ent_prod_lote !== null ? `, lote: ${produto.ent_prod_lote}` : ""})`,
+                `${produto.pdt_nome} - ID${produto.pdt_id} (qtd: ${produto.ent_prod_qtde}${produto.ent_prod_lote !== null ? `, lote: ${produto.ent_prod_lote}` : ""})`,
             )
             .join(", ")
         : "sem produtos encontrados";
