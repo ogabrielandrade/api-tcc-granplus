@@ -480,7 +480,7 @@ const registerExit = async (req, res) => {
     //  Registrar auditoria
     await registerAudit(
       req.user.user_id,
-      `Saída no produto ${pdt_id}`,
+      `Saída no produto ${produtoRows.pdt_id}`,
       "saida_produtos",
       result.insertId,
     );
