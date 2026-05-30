@@ -1,10 +1,55 @@
 const pool = require("../config/database");
 const { registerAudit } = require("../services/audit.services");
 
+let ensureLocationSoftDeleteColumnPromise = null;
+
+const ensureLocationSoftDeleteColumn = async () => {
+  if (!ensureLocationSoftDeleteColumnPromise) {
+    ensureLocationSoftDeleteColumnPromise = (async () => {
+      const [columns] = await pool.execute(
+        `SELECT COUNT(*) AS total
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'localizacao'
+           AND COLUMN_NAME = 'loc_ativo'`,
+      );
+
+      if (Number(columns[0].total) === 0) {
+        await pool.execute(
+          `ALTER TABLE localizacao
+           ADD COLUMN loc_ativo TINYINT(1) NOT NULL DEFAULT 1`,
+        );
+      }
+    })();
+  }
+
+  return ensureLocationSoftDeleteColumnPromise;
+};
+
 // LISTAR LOCALIZAÇÕES
 exports.listLocation = async (req, res) => {
   try {
-    const [result] = await pool.query("SELECT * FROM localizacao");
+    await ensureLocationSoftDeleteColumn();
+
+    const [result] = await pool.query(
+      "SELECT * FROM localizacao WHERE loc_ativo = 1 ORDER BY loc_nome",
+    );
+    return res.status(200).json(result);
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ erro: "Erro ao listar localizações", detalhe: err.message });
+  }
+};
+
+// LISTAR TODAS AS LOCALIZAÇÕES (ATIVAS E INATIVAS)
+exports.listAllLocations = async (req, res) => {
+  try {
+    await ensureLocationSoftDeleteColumn();
+
+    const [result] = await pool.query(
+      "SELECT * FROM localizacao ORDER BY loc_ativo DESC, loc_nome",
+    );
     return res.status(200).json(result);
   } catch (err) {
     return res
@@ -17,6 +62,8 @@ exports.listLocation = async (req, res) => {
 exports.searchLocation = async (req, res) => {
   const { id } = req.params;
   try {
+    await ensureLocationSoftDeleteColumn();
+
     const [result] = await pool.execute(
       "SELECT * FROM localizacao WHERE loc_id = ?",
       [id],
@@ -40,6 +87,8 @@ exports.searchLocation = async (req, res) => {
 exports.createLocation = async (req, res) => {
   const { loc_nome, loc_desc } = req.body;
   try {
+    await ensureLocationSoftDeleteColumn();
+
     // Tratamento de dados
     const nome = typeof loc_nome === "string" ? loc_nome.trim() : "";
     const desc = typeof loc_desc === "string" ? loc_desc.trim() : "";
@@ -51,7 +100,7 @@ exports.createLocation = async (req, res) => {
     }
 
     const [result] = await pool.execute(
-      "INSERT INTO localizacao (loc_nome, loc_desc) VALUES (?, ?)",
+      "INSERT INTO localizacao (loc_nome, loc_desc, loc_ativo) VALUES (?, ?, 1)",
       [nome, desc],
     );
 
@@ -82,6 +131,8 @@ exports.updateLocation = async (req, res) => {
   const { id } = req.params;
   const { loc_nome, loc_desc } = req.body;
   try {
+    await ensureLocationSoftDeleteColumn();
+
     const nome = typeof loc_nome === "string" ? loc_nome.trim() : "";
     const desc = typeof loc_desc === "string" ? loc_desc.trim() : "";
 
@@ -133,57 +184,143 @@ exports.updateLocation = async (req, res) => {
 
 // DELETAR LOCALIZAÇÃO
 exports.deleteLocation = async (req, res) => {
-
   const { id } = req.params;
 
   try {
+    await ensureLocationSoftDeleteColumn();
 
-    const [nome] = await pool.execute(
-      `SELECT loc_nome FROM localizacao WHERE loc_id = ? LIMIT 1`,
+    const [localizacao] = await pool.execute(
+      `SELECT loc_nome, loc_ativo
+       FROM localizacao
+       WHERE loc_id = ?
+       LIMIT 1`,
       [id],
     );
 
-    const nomeLoc = nome[0].loc_nome;
+    if (localizacao.length === 0) {
+      return res.status(404).json({ erro: "Localização não encontrada" });
+    }
+
+    const { loc_nome: nomeLoc, loc_ativo: locAtivo } = localizacao[0];
+
+    if (Number(locAtivo) === 0) {
+      return res.status(400).json({ erro: "Localização já está inativa" });
+    }
+
+    const [estoqueAtualLocalizacao] = await pool.execute(
+      `SELECT COUNT(*) AS total
+       FROM (
+         SELECT
+           ep.pdt_id,
+           COALESCE(SUM(ep.ent_prod_qtde), 0) AS entradas,
+           COALESCE((
+             SELECT SUM(sp.lcl_qtde)
+             FROM saida_produtos sp
+             JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
+             WHERE lp.loc_id = ?
+               AND lp.pdt_id = ep.pdt_id
+           ), 0) AS saidas
+         FROM entrada e
+         JOIN entrada_produtos ep ON ep.ent_id = e.ent_id
+         WHERE e.loc_id = ?
+         GROUP BY ep.pdt_id
+       ) saldos
+       WHERE (entradas - saidas) > 0`,
+      [id, id],
+    );
+
+    if (Number(estoqueAtualLocalizacao[0].total) > 0) {
+      return res.status(400).json({
+        erro: "Não é possível desativar esta localização porque ainda existem produtos em estoque nela.",
+      });
+    }
 
     const [result] = await pool.execute(
-      "DELETE FROM localizacao WHERE loc_id = ?",
+      "UPDATE localizacao SET loc_ativo = 0 WHERE loc_id = ?",
       [id],
     );
 
     if (result.affectedRows === 0) {
-      // diferente de comando select, o delete, update e insert não retornam arrays, mas objetos com metadados
       return res.status(404).json({ erro: "Localização não encontrada" });
     }
 
     try {
       await registerAudit(
         req.user.user_id,
-        `Localização ${nomeLoc} (ID ${id}) excluída`,
+        `Localização ${nomeLoc} (ID ${id}) desativada`,
         "localizacao",
-        result.insertID,
+        id,
       );
     } catch (error) {
       console.error("Erro ao atualizar localização", error);
     }
 
     return res.status(200).json({
-      message: "Localização removida com sucesso",
+      message: "Localização desativada com sucesso",
     });
   } catch (err) {
     console.error({
-      erro: "Erro ao remover localização",
+      erro: "Erro ao desativar localização",
       detalhe: err.message,
     });
 
-    // Proteção de Integridade Referencial (Chave Estrangeira)
-    if (err.code === "ER_ROW_IS_REFERENCED_2" || err.errno === 1451) {
-      return res.status(400).json({
-        erro: "Não é possível excluir esta localização pois existem produtos ou histórico vinculados a ela.",
-      });
-    }
-    // 2º: Se não for o erro de chave estrangeira, aí sim devolve o Erro 500 genérico
     return res
       .status(500)
-      .json({ erro: "Erro ao remover localização", detalhe: err.message });
+      .json({ erro: "Erro ao desativar localização", detalhe: err.message });
+  }
+};
+
+// ATIVAR LOCALIZAÇÃO
+exports.activateLocation = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await ensureLocationSoftDeleteColumn();
+
+    const [localizacao] = await pool.execute(
+      `SELECT loc_nome, loc_ativo
+       FROM localizacao
+       WHERE loc_id = ?
+       LIMIT 1`,
+      [id],
+    );
+
+    if (localizacao.length === 0) {
+      return res.status(404).json({ erro: "Localização não encontrada" });
+    }
+
+    const { loc_nome: nomeLoc, loc_ativo: locAtivo } = localizacao[0];
+
+    if (Number(locAtivo) === 1) {
+      return res.status(400).json({ erro: "Localização já está ativa" });
+    }
+
+    const [result] = await pool.execute(
+      "UPDATE localizacao SET loc_ativo = 1 WHERE loc_id = ?",
+      [id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ erro: "Localização não encontrada" });
+    }
+
+    try {
+      await registerAudit(
+        req.user.user_id,
+        `Localização ${nomeLoc} (ID ${id}) ativada`,
+        "localizacao",
+        id,
+      );
+    } catch (error) {
+      console.error("Erro ao registrar ativação de localização", error);
+    }
+
+    return res.status(200).json({
+      message: "Localização ativada com sucesso",
+    });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ erro: "Erro ao ativar localização", detalhe: err.message });
   }
 };

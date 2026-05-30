@@ -132,7 +132,7 @@ const getEstimatedAvailableLots = async (pdtId) => {
     [pdtId],
   );
 
-  let consumoSemLoteDetalhado = 0;
+  const consumoSemLoteDetalhadoPorLocalizacao = new Map();
 
   saidasRows.forEach((saida) => {
     const quantidadeSaida = toNumber(saida.lcl_qtde);
@@ -140,7 +140,12 @@ const getEstimatedAvailableLots = async (pdtId) => {
     const lotesDaSaida = parseLotsFromJustification(saida.lcl_justificativa);
 
     if (!lotesDaSaida.length) {
-      consumoSemLoteDetalhado += quantidadeSaida;
+      const chaveLocalizacao = locIdSaida || 0;
+      consumoSemLoteDetalhadoPorLocalizacao.set(
+        chaveLocalizacao,
+        toNumber(consumoSemLoteDetalhadoPorLocalizacao.get(chaveLocalizacao)) +
+          quantidadeSaida,
+      );
       return;
     }
 
@@ -193,6 +198,36 @@ const getEstimatedAvailableLots = async (pdtId) => {
       });
     }
   });
+
+  consumoSemLoteDetalhadoPorLocalizacao.forEach(
+    (consumoRestanteInicial, locId) => {
+      if (consumoRestanteInicial <= 0) return;
+
+      const lotesOrdenados = Array.from(disponibilidadePorLote.values())
+        .filter((lote) => toNumber(lote.loc_id) === toNumber(locId))
+        .sort((first, second) => {
+          const firstDate = formatDateKey(first.validade);
+          const secondDate = formatDateKey(second.validade);
+
+          if (!firstDate && !secondDate) return 0;
+          if (!firstDate) return 1;
+          if (!secondDate) return -1;
+
+          return firstDate.localeCompare(secondDate);
+        });
+
+      let consumoRestante = consumoRestanteInicial;
+
+      lotesOrdenados.forEach((lote) => {
+        if (consumoRestante <= 0) return;
+
+        const disponivel = toNumber(lote.quantidade_disponivel);
+        const abatimento = Math.min(disponivel, consumoRestante);
+        lote.quantidade_disponivel = disponivel - abatimento;
+        consumoRestante -= abatimento;
+      });
+    },
+  );
 
   const lotesDisponiveis = Array.from(disponibilidadePorLote.values())
     .map((lote) => ({
