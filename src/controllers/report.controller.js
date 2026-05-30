@@ -153,7 +153,7 @@ const getRelatorioDinamico = async (req, res) => {
       case "geral":
         if (!startDate || !endDate) return res.status(400).json({ erro: "Datas obrigatórias para este relatório." });
         query = `
-          SELECT a.aud_id, a.aud_acao, a.aud_data, a.aud_time, u.user_nome 
+          SELECT a.aud_id, a.aud_acao, a.aud_data, a.aud_time, a.aud_id_evento, u.user_nome 
           FROM auditoria a
           LEFT JOIN usuarios u ON a.user_id = u.user_id
           WHERE a.aud_data BETWEEN ? AND ?

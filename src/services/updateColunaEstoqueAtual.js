@@ -4,20 +4,22 @@ const updateColunaEstoqueAtual = async (connection = pool) => {
   try {
     const [rows] = await connection.query(`
                UPDATE produto p
-               SET pdt_estoque_atual =
-            COALESCE((
-                SELECT SUM(ep.ent_prod_qtde)
-                FROM entrada_produtos ep
-                WHERE ep.pdt_id = p.pdt_id
-            ), 0)
-            -
-            COALESCE((
-                SELECT SUM(sp.lcl_qtde)
-                FROM saida_produtos sp
-                JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
-                WHERE lp.pdt_id = p.pdt_id
+         SET pdt_estoque_atual = GREATEST(
+      COALESCE((
+        SELECT SUM(ep.ent_prod_qtde)
+        FROM entrada_produtos ep
+        WHERE ep.pdt_id = p.pdt_id
+      ), 0)
+      -
+      COALESCE((
+        SELECT SUM(sp.lcl_qtde)
+        FROM saida_produtos sp
+        JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
+        WHERE lp.pdt_id = p.pdt_id
                 
-            ), 0); 
+      ), 0),
+      0
+    ); 
             `);
     return rows;
   } catch (error) {
