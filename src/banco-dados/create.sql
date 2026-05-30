@@ -81,8 +81,9 @@ CREATE TABLE categorias (
 -- =========================
 CREATE TABLE localizacao (
     loc_id    INT AUTO_INCREMENT PRIMARY KEY,
-    loc_nome  VARCHAR(30)  NOT NULL,
-    loc_desc  VARCHAR(255)
+    loc_nome  VARCHAR(30)  NOT NULL UNIQUE,
+    loc_desc  VARCHAR(255),
+    loc_ativo TINYINT(1)   NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
 -- =========================
