@@ -341,10 +341,12 @@ exports.activateLocation = async (req, res) => {
       message: "Localização ativada com sucesso",
     });
   } catch (err) {
-    return res
-      .status(500)
-      .json({ erro: "Erro ao ativar localização", detalhe: err.message });
-      .json({ erro: "Erro ao remover localização", detalhe: err.message });
+    return (
+      res
+        .status(500)
+        //.json({ erro: "Erro ao ativar localização", detalhe: err.message });
+        .json({ erro: "Erro ao remover localização", detalhe: err.message })
+    );
   } finally {
     connection.release();
   }
