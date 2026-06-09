@@ -111,7 +111,7 @@ exports.createUser = async (req, res) => {
   try {
     await connection.beginTransaction();
     // verificar se o usuário já existe
-    const [existeUsuario] = await pool.execute(
+    const [existeUsuario] = await connection.execute(
       `SELECT user_id FROM usuarios WHERE user_nome = ?`,
       [user_nome],
     );
@@ -121,7 +121,7 @@ exports.createUser = async (req, res) => {
     }
 
     // verificar se o email já está em uso
-    const [emailExiste] = await pool.execute(
+    const [emailExiste] = await connection.execute(
       `SELECT user_id FROM usuarios WHERE user_email = ?`,
       [emailNormalizado],
     );
@@ -135,7 +135,7 @@ exports.createUser = async (req, res) => {
     // const senhaHash = await bcrypt.hash(user_senha, 10); // o número 10 é o custo do hash (quanto maior, mais seguro mas mais lento)
 
     // inserir no banco
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `INSERT INTO usuarios (user_nome, user_email, user_senha, user_nivel_acesso)
        VALUES (?, ?, ?, ?)`,
       [user_nome, emailNormalizado, senhaHash, nivelAcessoNormalizado],
@@ -208,7 +208,7 @@ exports.updateUser = async (req, res) => {
   try {
     await connection.beginTransaction()
     // verificar se usuário existe
-    const [usuarioExiste] = await pool.execute(
+    const [usuarioExiste] = await connection.execute(
       `SELECT user_id FROM usuarios WHERE user_id = ?`,
       [id],
     );
@@ -220,7 +220,7 @@ exports.updateUser = async (req, res) => {
     }
 
     // verificar se nome já está em uso
-    const [nomeExiste] = await pool.execute(
+    const [nomeExiste] = await connection.execute(
       `SELECT user_id
        FROM usuarios
        WHERE user_nome = ? AND user_id != ?`,
@@ -233,7 +233,7 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    const [nomeUsuario] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+    const [nomeUsuario] = await connection.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
 
     const nomeUsuarioAntigo = nomeUsuario[0].user_nome;
 
@@ -271,13 +271,13 @@ exports.updateUser = async (req, res) => {
     updateQuery += ` WHERE user_id = ?`;
     params.push(id);
 
-    await pool.execute(updateQuery, params);
+    await connection.execute(updateQuery, params);
 
     await registerAudit(
       req.user.user_id,
       `Usuário ${nomeUsuarioAntigo} atualizado para ${user_nome}`,
       "usuarios",
-      updateQuery.insertId
+      id
     )
 
     await connection.commit()
@@ -309,11 +309,11 @@ exports.deleteUser = async (req, res) => {
 
     const { id } = req.params;
 
-    const [nome] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+    const [nome] = await connection.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
 
     const nomeUsuario = nome[0].user_nome;
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `UPDATE usuarios
        SET user_ativo = 0
        WHERE user_id = ? AND user_ativo = 1`,
@@ -331,7 +331,7 @@ exports.deleteUser = async (req, res) => {
       req.user.user_id,
       `Usuário ${nomeUsuario} desativado`,
       "usuarios",
-      result.insertId
+      id
     )
 
     await connection.commit()

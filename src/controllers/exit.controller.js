@@ -302,7 +302,7 @@ const registerExit = async (req, res) => {
     }
 
     // busca o produto e estoque atual consolidado
-    const [produtoRows] = await pool.execute(
+    const [produtoRows] = await connection.execute(
       `SELECT pdt_id, pdt_estoque_atual
        FROM produto
        WHERE pdt_id = ?`,
@@ -396,7 +396,7 @@ const registerExit = async (req, res) => {
     }
 
     // Validação de validade - busca produtos com validade expirada ou próxima
-    const [validadeRows] = await pool.query(
+    const [validadeRows] = await connection.query(
       `SELECT pdt_validade, ent_prod_qtde
        FROM entrada_produtos
        WHERE pdt_id = ? AND pdt_validade IS NOT NULL
@@ -437,7 +437,7 @@ const registerExit = async (req, res) => {
     }
 
     // Busca vínculo do produto na localização escolhida.
-    const [produtoLocal] = await pool.execute(
+    const [produtoLocal] = await connection.execute(
       `SELECT lp.lcl_id
        FROM localizacao_produtos lp
        WHERE lp.pdt_id = ?
@@ -451,7 +451,7 @@ const registerExit = async (req, res) => {
     if (produtoLocal.length > 0) {
       lcl_id = produtoLocal[0].lcl_id;
     } else {
-      const [locRows] = await pool.execute(
+      const [locRows] = await connection.execute(
         `SELECT loc_id
          FROM localizacao
          WHERE (? IS NULL OR loc_id = ?)
@@ -466,7 +466,7 @@ const registerExit = async (req, res) => {
         });
       }
 
-      const [novoVinculo] = await pool.execute(
+      const [novoVinculo] = await connection.execute(
         `INSERT INTO localizacao_produtos (lcl_prod_estoque, pdt_id, loc_id)
          VALUES (?, ?, ?)`,
         [estoqueAtual, pdt_id, locRows[0].loc_id],
@@ -499,7 +499,7 @@ const registerExit = async (req, res) => {
       lcl_justificativa || "Não informada",
     )} | Lotes: ${lotesResumo}`.slice(0, 255);
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `INSERT INTO saida_produtos
       (lcl_id, lcl_qtde, lcl_data_saida, lcl_destino, lcl_tipo, lcl_justificativa)
       VALUES (?, ?, NOW(), ?, ?, ?)`,

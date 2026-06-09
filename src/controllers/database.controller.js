@@ -15,7 +15,7 @@ exports.testDataBase = async (req, res) => {
         });*/
     res.status(200).json({
       mensagem: "Conexão com o banco de dados está 100% ativa! 🚀",
-      banco_status: result[0].status === 1 ? "OK" : "Desconhecido",
+      banco_status: produto[0].status === 1 ? "OK" : "Desconhecido",
     });
   } catch (error) {
     console.error("Erro no teste de conexão com o banco:", error);

@@ -102,7 +102,7 @@ exports.createLocation = async (req, res) => {
         .json({ erro: "O nome da localização é obrigatório" });
     }
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       "INSERT INTO localizacao (loc_nome, loc_desc, loc_ativo) VALUES (?, ?, 1)",
       [nome, desc],
     );
@@ -150,18 +150,15 @@ exports.updateLocation = async (req, res) => {
         .json({ erro: "O nome da localização é obrigatório" });
     }
 
-    const [nomeAntigo] = await pool.execute(
-      `
-        SELECT loc_nome FROM localizacao WHERE loc_id = ? LIMIT 1
-      `,
+    const [nomeAntigo] = await connection.execute(
+      `SELECT loc_nome FROM localizacao WHERE loc_id = ? LIMIT 1`,
       [id],
     );
 
     const nomeAntigoLoc = nomeAntigo[0].loc_nome;
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `UPDATE localizacao SET loc_nome = ?, loc_desc = ? WHERE loc_id = ?`,
-      //[loc_nome, loc_desc, id]
       [nome, desc, id],
     );
 
@@ -173,7 +170,7 @@ exports.updateLocation = async (req, res) => {
       req.user.user_id,
       `Localização ${nomeAntigoLoc} atualizada para ${nome}`,
       "localizacao",
-      result.insertID,
+      id,
     );
 
     await connection.commit();
@@ -194,15 +191,13 @@ exports.updateLocation = async (req, res) => {
 // DELETAR LOCALIZAÇÃO
 exports.deleteLocation = async (req, res) => {
   const { id } = req.params;
-
   const connection = await pool.getConnection();
+
   try {
     await ensureLocationSoftDeleteColumn();
-    const { id } = req.params;
-
     await connection.beginTransaction();
 
-    const [localizacao] = await pool.execute(
+    const [localizacao] = await connection.execute(
       `SELECT loc_nome, loc_ativo
        FROM localizacao
        WHERE loc_id = ?
@@ -220,23 +215,23 @@ exports.deleteLocation = async (req, res) => {
       return res.status(400).json({ erro: "Localização já está inativa" });
     }
 
-    const [estoqueAtualLocalizacao] = await pool.execute(
+    const [estoqueAtualLocalizacao] = await connection.execute(
       `SELECT COUNT(*) AS total
        FROM (
-         SELECT
-           ep.pdt_id,
-           COALESCE(SUM(ep.ent_prod_qtde), 0) AS entradas,
-           COALESCE((
-             SELECT SUM(sp.lcl_qtde)
-             FROM saida_produtos sp
-             JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
-             WHERE lp.loc_id = ?
-               AND lp.pdt_id = ep.pdt_id
-           ), 0) AS saidas
-         FROM entrada e
-         JOIN entrada_produtos ep ON ep.ent_id = e.ent_id
-         WHERE e.loc_id = ?
-         GROUP BY ep.pdt_id
+          SELECT
+            ep.pdt_id,
+            COALESCE(SUM(ep.ent_prod_qtde), 0) AS entradas,
+            COALESCE((
+              SELECT SUM(sp.lcl_qtde)
+              FROM saida_produtos sp
+              JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
+              WHERE lp.loc_id = ?
+                AND lp.pdt_id = ep.pdt_id
+            ), 0) AS saidas
+          FROM entrada e
+          JOIN entrada_produtos ep ON ep.ent_id = e.ent_id
+          WHERE e.loc_id = ?
+          GROUP BY ep.pdt_id
        ) saldos
        WHERE (entradas - saidas) > 0`,
       [id, id],
@@ -248,7 +243,7 @@ exports.deleteLocation = async (req, res) => {
       });
     }
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       "UPDATE localizacao SET loc_ativo = 0 WHERE loc_id = ?",
       [id],
     );
@@ -257,21 +252,11 @@ exports.deleteLocation = async (req, res) => {
       return res.status(404).json({ erro: "Localização não encontrada" });
     }
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Localização ${nomeLoc} (ID ${id}) desativada`,
-        "localizacao",
-        id,
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar localização", error);
-    }
     await registerAudit(
       req.user.user_id,
-      `Localização ${nomeLoc} (ID ${id}) excluída`,
+      `Localização ${nomeLoc} (ID ${id}) desativada`,
       "localizacao",
-      result.insertID,
+      id,
     );
 
     await connection.commit();
@@ -289,17 +274,21 @@ exports.deleteLocation = async (req, res) => {
     return res
       .status(500)
       .json({ erro: "Erro ao desativar localização", detalhe: err.message });
+  } finally {
+    connection.release();
   }
 };
 
 // ATIVAR LOCALIZAÇÃO
 exports.activateLocation = async (req, res) => {
   const { id } = req.params;
+  const connection = await pool.getConnection();
 
   try {
     await ensureLocationSoftDeleteColumn();
+    await connection.beginTransaction();
 
-    const [localizacao] = await pool.execute(
+    const [localizacao] = await connection.execute(
       `SELECT loc_nome, loc_ativo
        FROM localizacao
        WHERE loc_id = ?
@@ -317,7 +306,7 @@ exports.activateLocation = async (req, res) => {
       return res.status(400).json({ erro: "Localização já está ativa" });
     }
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       "UPDATE localizacao SET loc_ativo = 1 WHERE loc_id = ?",
       [id],
     );
@@ -326,27 +315,23 @@ exports.activateLocation = async (req, res) => {
       return res.status(404).json({ erro: "Localização não encontrada" });
     }
 
-    try {
-      await registerAudit(
-        req.user.user_id,
-        `Localização ${nomeLoc} (ID ${id}) ativada`,
-        "localizacao",
-        id,
-      );
-    } catch (error) {
-      console.error("Erro ao registrar ativação de localização", error);
-    }
+    await registerAudit(
+      req.user.user_id,
+      `Localização ${nomeLoc} (ID ${id}) ativada`,
+      "localizacao",
+      id,
+    );
+
+    await connection.commit();
 
     return res.status(200).json({
       message: "Localização ativada com sucesso",
     });
   } catch (err) {
-    return (
-      res
-        .status(500)
-        //.json({ erro: "Erro ao ativar localização", detalhe: err.message });
-        .json({ erro: "Erro ao remover localização", detalhe: err.message })
-    );
+    await connection.rollback();
+    return res
+      .status(500)
+      .json({ erro: "Erro ao ativar localização", detalhe: err.message });
   } finally {
     connection.release();
   }
