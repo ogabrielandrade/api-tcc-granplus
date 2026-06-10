@@ -10,7 +10,7 @@ router.use(authenticateToken);
 
 router.get("/teste", databaseController.testDataBase);
 
-router.get("/testebanco", (req, res) => {
+router.get("/testebanco", requireAdmin, (req, res) => {
   console.log("Usuário do banco:", process.env.BD_USUARIO);
   res.json({
     message: "Rota de teste funcionando",

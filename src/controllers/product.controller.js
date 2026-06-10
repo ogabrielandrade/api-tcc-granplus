@@ -46,7 +46,7 @@ const createProduct = async (req, res) => {
       });
     }
     // valida duplicidade, incluindo produtos inativos
-    const [duplicados] = await pool.execute(
+    const [duplicados] = await connection.execute(
       `SELECT pdt_id, pdt_nome, pdt_codigo
        FROM produto
        WHERE pdt_codigo = ? OR pdt_nome = ?`,
@@ -74,7 +74,7 @@ const createProduct = async (req, res) => {
       });
     }
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `INSERT INTO produto 
        (pdt_nome, pdt_codigo, pdt_descricao, pdt_estoque_minimo, pdt_ativo, cat_id, unid_med_id) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -138,7 +138,7 @@ const updateProduct = async (req, res) => {
       });
     }
     // valida duplicidade ao atualizar (inclui produtos inativos), exceto o próprio registro
-    const [duplicadosEdicao] = await pool.execute(
+    const [duplicadosEdicao] = await connection.execute(
       `SELECT pdt_id, pdt_nome, pdt_codigo
        FROM produto
        WHERE (pdt_codigo = ? OR pdt_nome = ?) AND pdt_id <> ?`,
@@ -166,7 +166,7 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `UPDATE produto SET
         pdt_nome = ?,
         pdt_codigo = ?,
@@ -220,7 +220,7 @@ const deleteProduct = async (req, res) => {
 
     await connection.beginTransaction();
 
-    const [result] = await pool.execute(
+    const [result] = await connection.execute(
       `UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`,
       [id],
     );
