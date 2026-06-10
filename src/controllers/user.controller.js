@@ -233,9 +233,11 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    const [nomeUsuario] = await pool.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
-
-    const nomeUsuarioAntigo = nomeUsuario[0].user_nome;
+    const [usuarioAntigoResult] = await pool.execute(
+      "SELECT user_nome, user_email, user_ativo FROM usuarios WHERE user_id = ? LIMIT 1", 
+      [id]
+    );
+    const usuarioAntigo = usuarioAntigoResult[0];
 
     // verificar se quem está fazendo a requisição é admin 
     //const isAdmin = req.user.user_nivel_acesso === "admin";
@@ -273,11 +275,38 @@ exports.updateUser = async (req, res) => {
 
     await pool.execute(updateQuery, params);
 
+    let alteracoes = [];
+
+    if (usuarioAntigo.user_nome !== user_nome) {
+      alteracoes.push(`nome de '${usuarioAntigo.user_nome}' para '${user_nome}'`);
+    }
+
+    if (user_email && user_email.trim() !== "" && usuarioAntigo.user_email !== user_email) {
+      alteracoes.push(`email para '${user_email}'`);
+    }
+
+    if (usuarioAntigo.user_ativo !== ativoNormalizado) {
+      const statusTexto = ativoNormalizado === 1 ? "ATIVADO" : "DESATIVADO";
+      alteracoes.push(`status para ${statusTexto}`);
+    }
+
+    if (user_senha && user_senha && user_senha.trim() !== "") {
+      alteracoes.push(`senha atualizada`);
+    }
+
+    // 3. Montagem da mensagem final
+    let mensagemAuditoria = `Usuário ${usuarioAntigo.user_nome} atualizado.`;
+    if (alteracoes.length > 0) {
+      mensagemAuditoria += ` Alterações: ${alteracoes.join(', ')}.`;
+    } else {
+      mensagemAuditoria += ` Nenhuma alteração nos dados principais.`;
+    }
+
     await registerAudit(
       req.user.user_id,
-      `Usuário ${nomeUsuarioAntigo} atualizado para ${user_nome}`,
+      mensagemAuditoria,
       "usuarios",
-      updateQuery.insertId
+      id
     )
 
     await connection.commit()
