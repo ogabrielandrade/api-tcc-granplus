@@ -158,11 +158,15 @@ const getAllInputs = async (req, res) => {
     const [rows] = await connection.execute(`
       SELECT 
         e.ent_id,
+        e.loc_id,
+        e.fncd_id,
         e.ent_data,
         e.ent_data_compra,
         e.ent_valor_compra,
         f.fncd_nome AS forn_nome,
+        ep.pdt_id,
         ep.ent_prod_qtde AS ent_quantidade,
+        ep.ent_prod_lote AS lote,
         ep.pdt_validade,
         p.pdt_nome
       FROM entrada e
