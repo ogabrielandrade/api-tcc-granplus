@@ -512,11 +512,18 @@ const registerExit = async (req, res) => {
       ],
     );
 
-    //  Registrar auditoria
+      const [produtoResult] = await connection.execute(
+      `SELECT pdt_nome FROM produto WHERE pdt_id = ? LIMIT 1`,
+      [pdt_id]
+    );
+
+    const nomeProduto = produtoResult.length > 0 ? produtoResult[0].pdt_nome : 'Desconhecido';
+
+    
     await registerAudit(
       req.user.user_id,
-      `Saída no produto ${pdt_id}`,
-      "saida_produtos",
+      `Saída no produto ${nomeProduto} com o ID ${pdt_id}`, 
+      "Saidas de Produtos", 
       result.insertId,
     );
 
