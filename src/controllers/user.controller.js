@@ -21,14 +21,14 @@ const normalizeAccessLevel = (level) => {
     .toLowerCase(); // prop level é transformada em string, sem espaços em branco e em letras minúsculas
 
   if (value === "admin") return "admin";
-    if (
-      value === "user" ||
-      value === "usuario" ||
-      value === "operador" ||
-      value === "operator"
-    )
-      return "user";
-    return null;
+  if (
+    value === "user" ||
+    value === "usuario" ||
+    value === "operador" ||
+    value === "operator"
+  )
+    return "user";
+  return null;
 };
 
 // LISTAR TODOS OS USUÁRIOS
@@ -90,10 +90,12 @@ exports.getUserById = async (req, res) => {
 
 // CRIAR NOVO USUARIO
 exports.createUser = async (req, res) => {
-  const connection = await pool.getConnection()
+  const connection = await pool.getConnection();
   const { user_nome, user_senha, user_nivel_acesso, user_email } = req.body;
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
-  const emailNormalizado = String(user_email || "").trim().toLowerCase();
+  const emailNormalizado = String(user_email || "")
+    .trim()
+    .toLowerCase();
 
   // validação de entrada: garante que todos os dados obrigatórios foram enviados
   if (!user_nome || !user_senha || !user_nivel_acesso || !emailNormalizado) {
@@ -141,15 +143,14 @@ exports.createUser = async (req, res) => {
       [user_nome, emailNormalizado, senhaHash, nivelAcessoNormalizado],
     );
 
-    
-      await registerAudit(
-        req.user.user_id,
-        `Usuário ${user_nome} criado`,
-        "usuarios",
-        result.insertId
-      )
-    
-      await connection.commit()
+    await registerAudit(
+      req.user.user_id,
+      `Usuário ${user_nome} criado`,
+      "usuarios",
+      result.insertId,
+    );
+
+    await connection.commit();
 
     // resposta de Sucesso
     return res.status(201).json({
@@ -162,21 +163,22 @@ exports.createUser = async (req, res) => {
       },
     });
   } catch (error) {
-    await connection.rollback()
+    await connection.rollback();
     console.error("Erro ao criar usuário:", error);
     return res.status(500).json({
       erro: "Erro interno ao criar usuário",
     });
   } finally {
-    connection.release()
+    connection.release();
   }
 };
 
 // ATUALIZAR USUÁRIO
 exports.updateUser = async (req, res) => {
-  const connection = await pool.getConnection()
+  const connection = await pool.getConnection();
   const { id } = req.params;
-  const { user_nome, user_nivel_acesso, user_ativo, user_senha, user_email } = req.body;
+  const { user_nome, user_nivel_acesso, user_ativo, user_senha, user_email } =
+    req.body;
 
   const nivelAcessoNormalizado = normalizeAccessLevel(user_nivel_acesso);
   // const ativoNormalizado = Number(user_ativo);
@@ -206,7 +208,7 @@ exports.updateUser = async (req, res) => {
   }
 
   try {
-    await connection.beginTransaction()
+    await connection.beginTransaction();
     // verificar se usuário existe
     const [usuarioExiste] = await connection.execute(
       `SELECT user_id FROM usuarios WHERE user_id = ?`,
@@ -233,11 +235,14 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    const [nomeUsuario] = await connection.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+    const [usuarios] = await connection.execute(
+      "SELECT user_nome, user_email, user_ativo FROM usuarios WHERE user_id = ? LIMIT 1",
+      [id],
+    );
 
-    const nomeUsuarioAntigo = nomeUsuario[0].user_nome;
+    const usuarioAntigo = usuarios[0];
 
-    // verificar se quem está fazendo a requisição é admin 
+    // verificar se quem está fazendo a requisição é admin
     //const isAdmin = req.user.user_nivel_acesso === "admin";
     const isAdmin = req.user?.user_nivel_acesso === "admin" ? 1 : 0;
 
@@ -253,7 +258,7 @@ exports.updateUser = async (req, res) => {
       nivelAcessoNormalizado,
       ativoNormalizado,
     ];
-    
+
     // se o email foi preenchido, adiciona no UPDATE
     if (user_email && user_email.trim() !== "") {
       updateQuery += `, user_email = ?`;
@@ -276,10 +281,16 @@ exports.updateUser = async (req, res) => {
     let alteracoes = [];
 
     if (usuarioAntigo.user_nome !== user_nome) {
-      alteracoes.push(`nome de '${usuarioAntigo.user_nome}' para '${user_nome}'`);
+      alteracoes.push(
+        `nome de '${usuarioAntigo.user_nome}' para '${user_nome}'`,
+      );
     }
 
-    if (user_email && user_email.trim() !== "" && usuarioAntigo.user_email !== user_email) {
+    if (
+      user_email &&
+      user_email.trim() !== "" &&
+      usuarioAntigo.user_email !== user_email
+    ) {
       alteracoes.push(`email para '${user_email}'`);
     }
 
@@ -295,26 +306,21 @@ exports.updateUser = async (req, res) => {
     // 3. Montagem da mensagem final
     let mensagemAuditoria = `Usuário ${usuarioAntigo.user_nome} atualizado.`;
     if (alteracoes.length > 0) {
-      mensagemAuditoria += ` Alterações: ${alteracoes.join(', ')}.`;
+      mensagemAuditoria += ` Alterações: ${alteracoes.join(", ")}.`;
     } else {
       mensagemAuditoria += ` Nenhuma alteração nos dados principais.`;
     }
 
-    await registerAudit(
-      req.user.user_id,
-      mensagemAuditoria,
-      "usuarios",
-      id
-    )
+    await registerAudit(req.user.user_id, mensagemAuditoria, "usuarios", id);
 
-    await connection.commit()
+    await connection.commit();
 
     return res.status(200).json({
       mensagem: "Usuário atualizado com sucesso",
       user_id: id,
     });
   } catch (error) {
-    await connection.rollback()
+    await connection.rollback();
     console.error("Erro ao atualizar usuário:", error);
 
     return res.status(500).json({
@@ -322,21 +328,22 @@ exports.updateUser = async (req, res) => {
       detalhe: error.message,
     });
   } finally {
-    connection.release()
+    connection.release();
   }
 };
 
 // DESATIVAR USUÁRIO (SOFT DELETE)
 exports.deleteUser = async (req, res) => {
-  
-  const connection = await pool.getConnection()
+  const connection = await pool.getConnection();
   try {
-
-    await connection.beginTransaction()
+    await connection.beginTransaction();
 
     const { id } = req.params;
 
-    const [nome] = await connection.execute("SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1", [id]);
+    const [nome] = await connection.execute(
+      "SELECT user_nome FROM usuarios WHERE user_id = ? LIMIT 1",
+      [id],
+    );
 
     const nomeUsuario = nome[0].user_nome;
 
@@ -358,22 +365,22 @@ exports.deleteUser = async (req, res) => {
       req.user.user_id,
       `Usuário ${nomeUsuario} desativado`,
       "usuarios",
-      id
-    )
+      id,
+    );
 
-    await connection.commit()
+    await connection.commit();
 
     return res.status(200).json({
       mensagem: "Usuário desativado com sucesso",
     });
   } catch (error) {
-    await connection.rollback()
+    await connection.rollback();
     console.error("Erro ao desativar usuário:", error);
     return res.status(500).json({
       erro: "Erro ao desativar usuário",
     });
   } finally {
-    connection.release()
+    connection.release();
   }
 };
 
@@ -447,7 +454,7 @@ exports.loginUser = async (req, res) => {
         user_nome: user.user_nome,
         user_nivel_acesso: user.user_nivel_acesso,
       },
-      jwtSecret, 
+      jwtSecret,
       { expiresIn: "12h" },
     );
 
