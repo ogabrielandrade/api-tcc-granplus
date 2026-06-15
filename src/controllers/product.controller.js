@@ -166,6 +166,19 @@ const updateProduct = async (req, res) => {
       });
     }
 
+    // Busca os dados antigos do produto para comparação
+    const [produtoAntigo] = await connection.execute(
+      `SELECT pdt_nome, pdt_codigo, pdt_descricao, pdt_estoque_minimo, pdt_ativo, cat_id, unid_med_id 
+       FROM produto WHERE pdt_id = ? LIMIT 1`,
+      [id],
+    );
+
+    if (produtoAntigo.length === 0) {
+      return res.status(404).json({ message: "Produto não encontrado" });
+    }
+
+    const produto = produtoAntigo[0];
+
     const [result] = await connection.execute(
       `UPDATE produto SET
         pdt_nome = ?,
@@ -193,9 +206,51 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Produto não encontrado" });
     }
 
+    // Compara os dados antigos com os novos e constrói a lista de alterações
+    let alteracoes = [];
+
+    if (produto.pdt_nome !== nome) {
+      alteracoes.push(`nome de '${produto.pdt_nome}' para '${nome}'`);
+    }
+
+    if (produto.pdt_codigo !== codigo) {
+      alteracoes.push(`código de '${produto.pdt_codigo}' para '${codigo}'`);
+    }
+
+    if (produto.pdt_descricao !== (pdt_descricao || "")) {
+      alteracoes.push(`descrição atualizada`);
+    }
+
+    if (produto.pdt_estoque_minimo !== (Number(pdt_estoque_minimo) || 0)) {
+      alteracoes.push(
+        `estoque mínimo de ${produto.pdt_estoque_minimo} para ${Number(pdt_estoque_minimo) || 0}`,
+      );
+    }
+
+    if (produto.pdt_ativo !== pdt_ativo) {
+      const statusTexto = pdt_ativo === 1 ? "ATIVADO" : "DESATIVADO";
+      alteracoes.push(`status para ${statusTexto}`);
+    }
+
+    if (produto.cat_id !== cat_id) {
+      alteracoes.push(`categoria atualizada de ${produto.cat_id} para ${cat_id}`);
+    }
+
+    if (produto.unid_med_id !== unid_med_id) {
+      alteracoes.push(`unidade de medida atualizada de ${produto.unid_med_id} para ${unid_med_id}`);
+    }
+
+    // Montagem da mensagem final
+    let mensagemAuditoria = `Produto ${nome} (ID ${id}) atualizado.`;
+    if (alteracoes.length > 0) {
+      mensagemAuditoria += ` Alterações: ${alteracoes.join(", ")}.`;
+    } else {
+      mensagemAuditoria += ` Nenhuma alteração nos dados.`;
+    }
+
     await registerAudit(
       req.user.user_id,
-      `Produto ${id} atualizado`, // ********* MUDANÇA AQUI, TESTAR ************
+      mensagemAuditoria,
       "produto",
       id,
     );
