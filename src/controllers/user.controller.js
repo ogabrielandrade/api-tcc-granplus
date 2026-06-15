@@ -291,7 +291,7 @@ exports.updateUser = async (req, res) => {
       user_email.trim() !== "" &&
       usuarioAntigo.user_email !== user_email
     ) {
-      alteracoes.push(`email para '${user_email}'`);
+      alteracoes.push(`email para '${user_email}'`); // TESTAR ESSA FUNÇÃO PARA VER O QUE APARECE NA AUDITORIA
     }
 
     if (usuarioAntigo.user_ativo !== ativoNormalizado) {
@@ -303,7 +303,7 @@ exports.updateUser = async (req, res) => {
       alteracoes.push(`senha atualizada`);
     }
 
-    // 3. Montagem da mensagem final
+    // Montagem da mensagem final
     let mensagemAuditoria = `Usuário ${usuarioAntigo.user_nome} atualizado.`;
     if (alteracoes.length > 0) {
       mensagemAuditoria += ` Alterações: ${alteracoes.join(", ")}.`;
