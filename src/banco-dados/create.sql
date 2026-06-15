@@ -21,7 +21,7 @@ CREATE TABLE usuarios (
 CREATE TABLE auditoria (
     aud_id             INT AUTO_INCREMENT PRIMARY KEY,
     user_id            INT          NOT NULL,
-    aud_acao           VARCHAR(255),
+    aud_acao           VARCHAR(500),
     aud_data           DATE,
     aud_time           TIME,
     aud_tabela_afetada VARCHAR(20),
