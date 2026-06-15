@@ -113,15 +113,6 @@ exports.createUser = async (req, res) => {
   try {
     await connection.beginTransaction();
     // verificar se o usuário já existe
-    const [existeUsuario] = await connection.execute(
-      `SELECT user_id FROM usuarios WHERE user_nome = ?`,
-      [user_nome],
-    );
-
-    if (existeUsuario.length > 0) {
-      return res.status(409).json({ erro: "Usuário já existe" });
-    }
-
     // verificar se o email já está em uso
     const [emailExiste] = await connection.execute(
       `SELECT user_id FROM usuarios WHERE user_email = ?`,
@@ -218,20 +209,6 @@ exports.updateUser = async (req, res) => {
     if (usuarioExiste.length === 0) {
       return res.status(404).json({
         erro: "Usuário não encontrado",
-      });
-    }
-
-    // verificar se nome já está em uso
-    const [nomeExiste] = await connection.execute(
-      `SELECT user_id
-       FROM usuarios
-       WHERE user_nome = ? AND user_id != ?`,
-      [user_nome, id],
-    );
-
-    if (nomeExiste.length > 0) {
-      return res.status(409).json({
-        erro: "Nome de usuário já existe",
       });
     }
 
@@ -386,15 +363,15 @@ exports.deleteUser = async (req, res) => {
 
 // LOGIN DE USUÁRIO
 exports.loginUser = async (req, res) => {
-  const { user_nome, user_senha } = req.body;
+  const { user_email, user_senha } = req.body;
 
-  console.log("1. Chegou da tela:", user_nome, user_senha);
+  console.log("1. Chegou da tela:", user_email, user_senha);
 
   try {
     // validar campos obrigatórios
-    if (!user_nome || !user_senha) {
+    if (!user_email || !user_senha) {
       return res.status(400).json({
-        erro: "Nome de usuário e senha são obrigatórios",
+        erro: "E-mail e senha são obrigatórios",
       });
     }
 
@@ -402,13 +379,13 @@ exports.loginUser = async (req, res) => {
     const [usuarios] = await pool.execute(
       `SELECT user_id, user_nome, user_senha, user_nivel_acesso, user_ativo
        FROM usuarios
-       WHERE user_nome = ?`,
-      [user_nome],
+       WHERE user_email = ?`,
+      [user_email],
     );
 
     if (usuarios.length === 0) {
       return res.status(401).json({
-        erro: "Usuário ou senha inválidos",
+        erro: "E-mail ou senha inválidos",
       });
     }
 
@@ -430,7 +407,7 @@ exports.loginUser = async (req, res) => {
 
     if (!senhaValida) {
       return res.status(401).json({
-        erro: "Usuário ou senha inválidos",
+        erro: "E-mail ou senha inválidos",
       });
     }
 
@@ -518,38 +495,27 @@ exports.updatePassword = async (req, res) => {
 // FUNÇÕES DE RECUPERAÇÃO DE SENHA (PIN DE 6 DÍGITOS)
 // =========================================================
 
-const maskEmail = (email) => {
-  if (!email) return null;
-  const [nome, dominio] = email.split("@");
-  if (nome.length <= 3) return `***@${dominio}`;
-  const finalDoNome = nome.slice(-4);
-  return `****${finalDoNome}@${dominio}`;
-};
-
 // verifica se usuário existe e devolve o email escondido
 exports.verifyUserForReset = async (req, res) => {
-  const { user_nome } = req.body;
+  const { user_email } = req.body;
 
-  if (!user_nome)
-    return res.status(400).json({ erro: "Nome de usuário é obrigatório" });
+  if (!user_email)
+    return res.status(400).json({ erro: "E-mail é obrigatório" });
 
   try {
     const [usuarios] = await pool.execute(
-      `SELECT user_email FROM usuarios WHERE user_nome = ? AND user_ativo = 1`,
-      [user_nome],
+      `SELECT user_email FROM usuarios WHERE user_email = ? AND user_ativo = 1`,
+      [user_email],
     );
 
     if (usuarios.length === 0 || !usuarios[0].user_email) {
       return res
         .status(404)
-        .json({ erro: "Usuário não encontrado ou sem e-mail cadastrado." });
+        .json({ erro: "E-mail não encontrado ou usuário inativo." });
     }
-
-    const emailMascarado = maskEmail(usuarios[0].user_email);
 
     return res.status(200).json({
       mensagem: "Usuário encontrado",
-      emailMascarado: emailMascarado,
     });
   } catch (error) {
     console.error("Erro no verifyUserForReset:", error);
@@ -559,16 +525,16 @@ exports.verifyUserForReset = async (req, res) => {
 
 // gera o código de 6 dígitos e envia por e-mail
 exports.sendResetPin = async (req, res) => {
-  const { user_nome } = req.body;
+  const { user_email } = req.body;
 
   try {
     const [usuarios] = await pool.execute(
-      `SELECT user_id, user_nome, user_email FROM usuarios WHERE user_nome = ?`,
-      [user_nome],
+      `SELECT user_id, user_nome, user_email FROM usuarios WHERE user_email = ?`,
+      [user_email],
     );
 
     if (usuarios.length === 0)
-      return res.status(404).json({ erro: "Usuário não encontrado" });
+      return res.status(404).json({ erro: "E-mail não encontrado" });
 
     const user = usuarios[0];
     const pin = Math.floor(100000 + Math.random() * 900000).toString(); // PIN 6 dígitos
@@ -608,19 +574,19 @@ exports.sendResetPin = async (req, res) => {
 
 // recebe o PIN e a Senha Nova, e salva no banco
 exports.resetPasswordWithPin = async (req, res) => {
-  const { user_nome, pin, novaSenha } = req.body;
+  const { user_email, pin, novaSenha } = req.body;
 
-  if (!user_nome || !pin || !novaSenha) {
+  if (!user_email || !pin || !novaSenha) {
     return res
       .status(400)
-      .json({ erro: "Usuário, código PIN e nova senha são obrigatórios" });
+      .json({ erro: "E-mail, código PIN e nova senha são obrigatórios" });
   }
 
   try {
     const [usuarios] = await pool.execute(
       `SELECT user_id FROM usuarios 
-       WHERE user_nome = ? AND reset_token = ? AND reset_expires > NOW()`,
-      [user_nome, pin],
+       WHERE user_email = ? AND reset_token = ? AND reset_expires > NOW()`,
+      [user_email, pin],
     );
 
     if (usuarios.length === 0) {
