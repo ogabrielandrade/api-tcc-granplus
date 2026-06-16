@@ -6,9 +6,10 @@ const listAllProducts = async (req, res) => {
   try {
     // a lista principal já traz o estoque atualizado e o nome da categoria
     const [produtos] = await pool.execute(
-      `SELECT p.*, c.cat_nome 
-       FROM produto p 
+      `SELECT p.*, c.cat_nome, um.unid_med_sigla
+       FROM produto p
        LEFT JOIN categorias c ON p.cat_id = c.cat_id
+       LEFT JOIN unidade_medida um ON p.unid_med_id = um.unid_med_id
        WHERE p.pdt_ativo = 1
        ORDER BY p.pdt_nome ASC`,
     );
