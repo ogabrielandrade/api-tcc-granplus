@@ -210,6 +210,12 @@ const updateProduct = async (req, res) => {
     // Compara os dados antigos com os novos e constrói a lista de alterações
     let alteracoes = [];
 
+    // Converte valores para comparação segura
+    const novoEstoqueMinimo = Number(pdt_estoque_minimo) || 0;
+    const novoAtivo = Number(pdt_ativo) || 1;
+    const novaCategoria = Number(cat_id);
+    const novaUnidade = Number(unid_med_id);
+
     if (produto.pdt_nome !== nome) {
       alteracoes.push(`nome de '${produto.pdt_nome}' para '${nome}'`);
     }
@@ -222,23 +228,23 @@ const updateProduct = async (req, res) => {
       alteracoes.push(`descrição atualizada`);
     }
 
-    if (produto.pdt_estoque_minimo !== (Number(pdt_estoque_minimo) || 0)) {
+    if (Number(produto.pdt_estoque_minimo) !== novoEstoqueMinimo) {
       alteracoes.push(
-        `estoque mínimo de ${produto.pdt_estoque_minimo} para ${Number(pdt_estoque_minimo) || 0}`,
+        `estoque mínimo de ${produto.pdt_estoque_minimo} para ${novoEstoqueMinimo}`,
       );
     }
 
-    if (produto.pdt_ativo !== pdt_ativo) {
-      const statusTexto = pdt_ativo === 1 ? "ATIVADO" : "DESATIVADO";
+    if (Number(produto.pdt_ativo) !== novoAtivo) {
+      const statusTexto = novoAtivo === 1 ? "ATIVADO" : "DESATIVADO";
       alteracoes.push(`status para ${statusTexto}`);
     }
 
-    if (produto.cat_id !== cat_id) {
-      alteracoes.push(`categoria atualizada de ${produto.cat_id} para ${cat_id}`);
+    if (Number(produto.cat_id) !== novaCategoria) {
+      alteracoes.push(`categoria atualizada de ${produto.cat_id} para ${novaCategoria}`);
     }
 
-    if (produto.unid_med_id !== unid_med_id) {
-      alteracoes.push(`unidade de medida atualizada de ${produto.unid_med_id} para ${unid_med_id}`);
+    if (Number(produto.unid_med_id) !== novaUnidade) {
+      alteracoes.push(`unidade de medida atualizada de ${produto.unid_med_id} para ${novaUnidade}`);
     }
 
     // Montagem da mensagem final
