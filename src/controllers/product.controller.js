@@ -4,13 +4,19 @@ const { registerAudit } = require("../services/audit.services.js");
 // LISTAR TODOS OS PRODUTOS
 const listAllProducts = async (req, res) => {
   try {
+    const includeInactive =
+      req.query.includeInactive === "1" &&
+      req.user?.user_nivel_acesso === "admin";
+
+    const whereClause = includeInactive ? "" : "WHERE p.pdt_ativo = 1";
+
     // a lista principal já traz o estoque atualizado e o nome da categoria
     const [produtos] = await pool.execute(
       `SELECT p.*, c.cat_nome, um.unid_med_sigla
        FROM produto p
        LEFT JOIN categorias c ON p.cat_id = c.cat_id
        LEFT JOIN unidade_medida um ON p.unid_med_id = um.unid_med_id
-       WHERE p.pdt_ativo = 1
+       ${whereClause}
        ORDER BY p.pdt_nome ASC`,
     );
     res.status(200).json(produtos);
@@ -146,8 +152,12 @@ const updateProduct = async (req, res) => {
       [codigo, nome, id],
     );
 
-    const codigoJaExisteEdicao = duplicadosEdicao.some((p) => p.pdt_codigo === codigo);
-    const nomeJaExisteEdicao = duplicadosEdicao.some((p) => p.pdt_nome === nome);
+    const codigoJaExisteEdicao = duplicadosEdicao.some(
+      (p) => p.pdt_codigo === codigo,
+    );
+    const nomeJaExisteEdicao = duplicadosEdicao.some(
+      (p) => p.pdt_nome === nome,
+    );
 
     if (codigoJaExisteEdicao && nomeJaExisteEdicao) {
       return res.status(409).json({
@@ -240,11 +250,15 @@ const updateProduct = async (req, res) => {
     }
 
     if (Number(produto.cat_id) !== novaCategoria) {
-      alteracoes.push(`categoria atualizada de ${produto.cat_id} para ${novaCategoria}`);
+      alteracoes.push(
+        `categoria atualizada de ${produto.cat_id} para ${novaCategoria}`,
+      );
     }
 
     if (Number(produto.unid_med_id) !== novaUnidade) {
-      alteracoes.push(`unidade de medida atualizada de ${produto.unid_med_id} para ${novaUnidade}`);
+      alteracoes.push(
+        `unidade de medida atualizada de ${produto.unid_med_id} para ${novaUnidade}`,
+      );
     }
 
     // Montagem da mensagem final
@@ -255,12 +269,7 @@ const updateProduct = async (req, res) => {
       mensagemAuditoria += ` Nenhuma alteração nos dados.`;
     }
 
-    await registerAudit(
-      req.user.user_id,
-      mensagemAuditoria,
-      "produto",
-      id,
-    );
+    await registerAudit(req.user.user_id, mensagemAuditoria, "produto", id);
 
     await connection.commit();
 
@@ -311,6 +320,61 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+// ATIVAR PRODUTO
+const activateProduct = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { id } = req.params;
+
+    await connection.beginTransaction();
+
+    const [produto] = await connection.execute(
+      `SELECT pdt_nome, pdt_ativo
+       FROM produto
+       WHERE pdt_id = ?
+       LIMIT 1`,
+      [id],
+    );
+
+    if (produto.length === 0) {
+      return res.status(404).json({ error: "Produto não encontrado" });
+    }
+
+    const produtoAtual = produto[0];
+
+    if (Number(produtoAtual.pdt_ativo) === 1) {
+      return res.status(400).json({ error: "Produto já está ativo" });
+    }
+
+    const [result] = await connection.execute(
+      `UPDATE produto SET pdt_ativo = 1 WHERE pdt_id = ?`,
+      [id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Produto não encontrado" });
+    }
+
+    await registerAudit(
+      req.user.user_id,
+      `Produto ${produtoAtual.pdt_nome} (ID ${id}) ativado`,
+      "produto",
+      id,
+    );
+
+    await connection.commit();
+
+    res.status(200).json({ message: "Produto ativado com sucesso" });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Erro ao ativar o produto", error);
+    res.status(500).json({ error: "Erro ao ativar o produto" });
+  } finally {
+    connection.release();
+  }
+};
+
 // EXTRATO DE MOVIMENTAÇÃO (TIMELINE)
 const historicalMoviments = async (req, res) => {
   try {
@@ -351,5 +415,6 @@ module.exports = {
   createProduct,
   updateProduct,
   deleteProduct,
+  activateProduct,
   historicalMoviments,
 };
