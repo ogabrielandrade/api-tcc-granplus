@@ -242,6 +242,45 @@ const getEstimatedAvailableLots = async (pdtId) => {
     }))
     .filter((lote) => lote.quantidade_disponivel > 0);
 
+  const totalLotesDisponiveis = Number(
+    lotesDisponiveis
+      .reduce((acc, lote) => acc + toNumber(lote.quantidade_disponivel), 0)
+      .toFixed(2),
+  );
+
+  const diferencaEstoque = Number(
+    (estoqueAtual - totalLotesDisponiveis).toFixed(2),
+  );
+
+  if (Math.abs(diferencaEstoque) >= 0.01 && lotesDisponiveis.length > 0) {
+    if (diferencaEstoque > 0) {
+      const ultimoLote = lotesDisponiveis[lotesDisponiveis.length - 1];
+      ultimoLote.quantidade_disponivel = Number(
+        (toNumber(ultimoLote.quantidade_disponivel) + diferencaEstoque).toFixed(
+          2,
+        ),
+      );
+    } else {
+      let restante = Math.abs(diferencaEstoque);
+
+      for (
+        let index = lotesDisponiveis.length - 1;
+        index >= 0 && restante > 0;
+        index -= 1
+      ) {
+        const lote = lotesDisponiveis[index];
+        const abatimento = Math.min(
+          toNumber(lote.quantidade_disponivel),
+          restante,
+        );
+        lote.quantidade_disponivel = Number(
+          (toNumber(lote.quantidade_disponivel) - abatimento).toFixed(2),
+        );
+        restante = Number((restante - abatimento).toFixed(2));
+      }
+    }
+  }
+
   return {
     produto: {
       pdt_id: produtoRows[0].pdt_id,
@@ -279,12 +318,11 @@ const getAvailableLots = async (req, res) => {
   }
 };
 
-
 // REGISTRAR SAÍDA
 const registerExit = async (req, res) => {
-  const connection = await pool.getConnection()
+  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction()
+    await connection.beginTransaction();
     const {
       pdt_id,
       loc_id,
@@ -512,22 +550,22 @@ const registerExit = async (req, res) => {
       ],
     );
 
-      const [produtoResult] = await connection.execute(
+    const [produtoResult] = await connection.execute(
       `SELECT pdt_nome FROM produto WHERE pdt_id = ? LIMIT 1`,
-      [pdt_id]
+      [pdt_id],
     );
 
-    const nomeProduto = produtoResult.length > 0 ? produtoResult[0].pdt_nome : 'Desconhecido';
+    const nomeProduto =
+      produtoResult.length > 0 ? produtoResult[0].pdt_nome : "Desconhecido";
 
-    
     await registerAudit(
       req.user.user_id,
-      `Saída no produto ${nomeProduto} com o ID ${pdt_id}`, 
-      "Saidas de Produtos", 
+      `Saída no produto ${nomeProduto} com o ID ${pdt_id}`,
+      "Saidas de Produtos",
       result.insertId,
     );
 
-    await connection.commit()
+    await connection.commit();
 
     res.status(201).json({
       mensagem: "Saída registrada com sucesso",
@@ -535,7 +573,7 @@ const registerExit = async (req, res) => {
       aviso_validade: aviso,
     });
   } catch (error) {
-    await connection.rollback()
+    await connection.rollback();
     console.error("Erro ao registrar saída:", error);
 
     res.status(500).json({
@@ -543,7 +581,7 @@ const registerExit = async (req, res) => {
       detalhe: error.message,
     });
   } finally {
-    connection.release()
+    connection.release();
   }
 };
 

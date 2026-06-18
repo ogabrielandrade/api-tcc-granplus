@@ -1,6 +1,33 @@
 const pool = require("../config/database.js");
 const { registerAudit } = require("../services/audit.services.js");
 
+const getProductStockSnapshot = async (connection, productId) => {
+  const [rows] = await connection.execute(
+    `SELECT
+       p.pdt_id,
+       p.pdt_nome,
+       p.pdt_ativo,
+       COALESCE((
+         SELECT SUM(ep.ent_prod_qtde)
+         FROM entrada_produtos ep
+         WHERE ep.pdt_id = p.pdt_id
+       ), 0)
+       -
+       COALESCE((
+         SELECT SUM(sp.lcl_qtde)
+         FROM saida_produtos sp
+         JOIN localizacao_produtos lp ON lp.lcl_id = sp.lcl_id
+         WHERE lp.pdt_id = p.pdt_id
+       ), 0) AS estoque_atual
+     FROM produto p
+     WHERE p.pdt_id = ?
+     LIMIT 1`,
+    [productId],
+  );
+
+  return rows[0] || null;
+};
+
 // LISTAR TODOS OS PRODUTOS
 const listAllProducts = async (req, res) => {
   try {
@@ -177,6 +204,23 @@ const updateProduct = async (req, res) => {
       });
     }
 
+    const produtoAtual = await getProductStockSnapshot(connection, id);
+
+    if (!produtoAtual) {
+      await connection.rollback();
+      return res.status(404).json({ message: "Produto não encontrado" });
+    }
+
+    if (Number(produtoAtual.pdt_ativo) === 1 && Number(pdt_ativo) === 0) {
+      if (Number(produtoAtual.estoque_atual) > 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          error:
+            "O Produto não pode ser excluido, pois o mesmo ainda possui saldo em estoque",
+        });
+      }
+    }
+
     // Busca os dados antigos do produto para comparação
     const [produtoAntigo] = await connection.execute(
       `SELECT pdt_nome, pdt_codigo, pdt_descricao, pdt_estoque_minimo, pdt_ativo, cat_id, unid_med_id 
@@ -291,6 +335,21 @@ const deleteProduct = async (req, res) => {
 
     await connection.beginTransaction();
 
+    const produtoAtual = await getProductStockSnapshot(connection, id);
+
+    if (!produtoAtual) {
+      await connection.rollback();
+      return res.status(404).json({ message: "Produto não encontrado" });
+    }
+
+    if (Number(produtoAtual.estoque_atual) > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        error:
+          "O Produto não pode ser excluido pois o mesmo ainda possui saldo em estoque",
+      });
+    }
+
     const [result] = await connection.execute(
       `UPDATE produto SET pdt_ativo = 0 WHERE pdt_id = ?`,
       [id],
@@ -303,7 +362,7 @@ const deleteProduct = async (req, res) => {
 
     await registerAudit(
       req.user.user_id,
-      `Produto ${id} desativado`,
+      `Produto ${produtoAtual.pdt_nome} (ID ${id}) desativado`,
       "produto",
       id,
     );
