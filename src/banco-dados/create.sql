@@ -155,15 +155,15 @@ CREATE TABLE entrada (
 
 -- =========================
 -- TABELA: entrada_produtos
--- (tabela de relação N:N entre entrada e produto)
+-- (permite múltiplas linhas do mesmo produto na mesma entrada)
 -- =========================
 CREATE TABLE entrada_produtos (
+    ent_prod_id   INT AUTO_INCREMENT PRIMARY KEY,
     ent_id        INT NOT NULL,
     pdt_id        INT NOT NULL,
     ent_prod_qtde INT NOT NULL,
     ent_prod_lote INT,
     pdt_validade  DATE,
-    PRIMARY KEY (ent_id, pdt_id),
     CONSTRAINT fk_entprod_entrada
         FOREIGN KEY (ent_id)
         REFERENCES entrada(ent_id)

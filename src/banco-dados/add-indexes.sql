@@ -20,7 +20,12 @@ ON produto (pdt_ativo);
 CREATE INDEX idx_entrada_produtos_validade 
 ON entrada_produtos (pdt_validade);
 
--- 4. Otimização de Códigos de Produto (Validações de cadastro):
+-- 4. Otimização de Entradas por Produto/Lote/Validade:
+-- Melhora consultas por entrada e detalhamento de lotes na mesma entrada.
+CREATE INDEX idx_entrada_produtos_ent_prod_lote_validade
+ON entrada_produtos (ent_id, pdt_id, ent_prod_lote, pdt_validade);
+
+-- 5. Otimização de Códigos de Produto (Validações de cadastro):
 -- Agiliza a verificação de duplicidade de código durante o insert e update de produtos.
 CREATE INDEX idx_produto_codigo 
 ON produto (pdt_codigo);
