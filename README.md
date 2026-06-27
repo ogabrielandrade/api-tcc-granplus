@@ -449,7 +449,6 @@ Para realizar testes interativos rápidos nos endpoints da API, siga o procedime
 *   **Renderização Dinâmica com Swagger**: Estruturar e servir a documentação interativa das rotas integrando a biblioteca `swagger-ui-express` que já consta no arquivo `package.json`.
 *   **Paginação nas Consultas**: Adicionar limitadores de dados (Pagination por offset/limit) nas rotas de listagens de produtos e movimentações, garantindo alta performance mesmo sob grandes bases de dados.
 *   **Validações com Bibliotecas Declarativas**: Integrar ferramentas como Yup ou Joi para automatizar as validações de payloads de entrada de forma elegante e centralizada.
-*   **Suporte a Lotes Alfanuméricos**: Alterar a coluna `ent_prod_lote` de `INT` para `VARCHAR` nas próximas migrações do banco de dados, possibilitando a entrada de lotes contendo letras e caracteres especiais.
 
 ---
 
