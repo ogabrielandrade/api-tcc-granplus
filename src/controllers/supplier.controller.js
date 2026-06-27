@@ -4,6 +4,12 @@ const { registerAudit } = require("../services/audit.services");
 /// LISTAGEM DE FORNECEDORES (inclui ativos e inativos)
 exports.getAllSupplier = async (req, res) => {
   try {
+    const includeInactive =
+      req.query.includeInactive === "1" &&
+      req.user?.user_nivel_acesso === "admin";
+
+    const whereClause = includeInactive ? "" : "WHERE f.fncd_ativo = 1";
+
     const [rows] = await pool.execute(`SELECT
         f.*,
         CONCAT(
@@ -14,6 +20,7 @@ exports.getAllSupplier = async (req, res) => {
           ' - CEP: ', f.fncd_cep
         ) AS fncd_endereco
       FROM fornecedor f
+      ${whereClause}
       `);
     res.json(rows);
   } catch (error) {
@@ -409,6 +416,58 @@ exports.deleteSupplier = async (req, res) => {
     res
       .status(500)
       .json({ erro: "Erro ao inativar fornecedor", detalhe: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// ATIVAR FORNECEDOR
+exports.activateSupplier = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { id } = req.params;
+
+    await connection.beginTransaction();
+
+    const [fornecedor] = await connection.execute(
+      `SELECT fncd_nome, fncd_ativo FROM fornecedor WHERE fncd_id = ? LIMIT 1`,
+      [id],
+    );
+
+    if (fornecedor.length === 0) {
+      return res.status(404).json({ error: "Fornecedor não encontrado" });
+    }
+
+    const fornecedorAtual = fornecedor[0];
+
+    if (Number(fornecedorAtual.fncd_ativo) === 1) {
+      return res.status(400).json({ error: "Fornecedor já está ativo" });
+    }
+
+    const [result] = await connection.execute(
+      `UPDATE fornecedor SET fncd_ativo = 1 WHERE fncd_id = ?`,
+      [id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Fornecedor não encontrado" });
+    }
+
+    await registerAudit(
+      req.user.user_id,
+      `Fornecedor ${fornecedorAtual.fncd_nome} (ID ${id}) ativado`,
+      "fornecedor",
+      id,
+    );
+
+    await connection.commit();
+
+    res.status(200).json({ message: "Fornecedor ativado com sucesso" });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Erro ao ativar o fornecedor", error);
+    res.status(500).json({ error: "Erro ao ativar o fornecedor" });
   } finally {
     connection.release();
   }

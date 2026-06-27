@@ -11,5 +11,6 @@ router.get("/:id", controller.getSupplierById);
 router.post("/", controller.createSupplier);
 router.put("/:id", controller.updateSupplier);
 router.delete("/:id", controller.deleteSupplier);
+router.patch("/:id/activate", requireAdmin, controller.activateSupplier);
 
 module.exports = router;
