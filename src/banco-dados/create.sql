@@ -161,7 +161,7 @@ CREATE TABLE entrada_produtos (
     ent_id        INT NOT NULL,
     pdt_id        INT NOT NULL,
     ent_prod_qtde INT NOT NULL,
-    ent_prod_lote INT,
+    ent_prod_lote VARCHAR(50),
     pdt_validade  DATE,
     PRIMARY KEY (ent_id, pdt_id),
     CONSTRAINT fk_entprod_entrada
